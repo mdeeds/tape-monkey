@@ -1,5 +1,7 @@
 // @ts-check
 
+import { ToolSchemas } from "./controller/MainController.js";
+
 async function main() {
   // The main logic will go here
   console.log("Main function has been called.");
@@ -19,6 +21,9 @@ async function main() {
     console.error("Error obtaining audio stream:", err);
     // You could show an error message to the user here.
   }
+
+  const schema = new ToolSchemas();
+  console.log(schema.getSchemaSummary());
 }
 
 /**
