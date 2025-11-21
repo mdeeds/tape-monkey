@@ -23,7 +23,7 @@ The application's logic is segregated into specialized files, organized into log
 |  | ChatInterfaceUI.js | Rendering View | Renders the user text input, STT button, and the conversation history. |
 | **/controller** | MainController.js | Application Controller | Handles user input, executes tool calls, and coordinates updates. |
 |  | LLM.js | LLM Abstraction Service | Encapsulates all interactions with the Gemini API (conversational and correction calls). |
-| **Root** | main.js | Entry Point | Application initialization, module imports, and initial setup. |
+| **Root** | script.js | Entry Point | Application initialization, module imports, and initial setup. |
 
 ## **4\. Core Data Flow: Controller-Mediated Asymmetry**
 
