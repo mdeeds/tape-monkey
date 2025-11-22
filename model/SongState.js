@@ -82,6 +82,7 @@ export class SongState extends EventTarget {
 
     const newSections = [];
     let currentSection = null;
+    let currentSectionBodyLines = [];
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
@@ -89,14 +90,15 @@ export class SongState extends EventTarget {
 
       if (sectionMatch) {
         if (currentSection) {
-          // currentSection.body = currentSection.body.trim();
+          currentSection.body = currentSectionBodyLines.join('\n');
           newSections.push(currentSection);
         }
         const sectionName = sectionMatch[1].trim();
         const barCount = parseInt(sectionMatch[2], 10);
         currentSection = { name: sectionName, bar_count: barCount, body: '' };
-      } else if (currentSection) {
-        currentSection.body += line + '\n';
+        currentSectionBodyLines = [];
+      } else if (currentSection !== null) {
+        currentSectionBodyLines.push(line);
       } else {
         if (!line) continue;
         return new SongParseError(`Line is not in a section: ${line}` +
@@ -105,7 +107,7 @@ export class SongState extends EventTarget {
     }
 
     if (currentSection) {
-      // currentSection.body = currentSection.body.trim();
+      currentSection.body = currentSectionBodyLines.join('\n');
       newSections.push(currentSection);
     }
 
@@ -130,11 +132,7 @@ export class SongState extends EventTarget {
 
     for (const section of this.#sections) {
       text += `[${section.name}, Bars: ${section.bar_count}]\n`;
-      if (section.body) {
-        text += `${section.body}\n\n`;
-      } else {
-        text += '\n';
-      }
+      text += `${section.body}\n`;
     }
     return text;
   }

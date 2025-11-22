@@ -70,9 +70,15 @@ export class SongUI {
     const currentText = this.#textArea.value;
     const serializedState = this.#songState.serialize();
 
+    // Preserve cursor position
+    const selectionStart = this.#textArea.selectionStart;
+    const selectionEnd = this.#textArea.selectionEnd;
+
     // Only update if the text is different to avoid moving the cursor during typing.
     if (currentText !== serializedState) {
       this.#textArea.value = serializedState;
+      // Restore cursor position
+      this.#textArea.setSelectionRange(selectionStart, selectionEnd);
     }
 
     // A state change implies the state is valid.
