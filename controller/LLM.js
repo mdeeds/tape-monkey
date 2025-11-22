@@ -8,12 +8,29 @@
  */
 export class LLM {
   #session = null;
+  #schemaDescription = null;
 
   /**
    * @constructor
+   * @private
    */
-  constructor(schemaDescription) {
-    this.#initializeSession(schemaDescription);
+  constructor(session, schemaDescription) {
+    this.#session = session;
+    this.#schemaDescription = schemaDescription;
+  }
+
+  /**
+   * Asynchronously creates and initializes an LLM instance.
+   * @param {string} schemaDescription 
+   * @returns {Promise<LLM>}
+   */
+  static async create(schemaDescription) {
+    const llm = new LLM(null, schemaDescription);
+    await llm.#initializeSession();
+    if (!llm.#session) {
+      throw new Error("Failed to create LLM session.");
+    }
+    return llm;
   }
 
   #getSystemInstructions(schemaDescription) {
@@ -50,7 +67,7 @@ ${schemaDescription}
 `;
   }
 
-  async #initializeSession(schemaDescription) {
+  async #initializeSession() {
     try {
       if (typeof LanguageModel === 'undefined') {
         console.error("The LanguageModel API is not available.");
@@ -68,7 +85,7 @@ ${schemaDescription}
         initialPrompts: [
           {
             role: 'system',
-            content: this.#getSystemInstructions(schemaDescription)
+            content: this.#getSystemInstructions(this.#schemaDescription)
           }
         ],
         outputLanguage: ['en'],

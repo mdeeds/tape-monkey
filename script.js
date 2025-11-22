@@ -26,8 +26,13 @@ async function main() {
   const schema = new ToolSchemas();
   console.log(schema.getSchemaSummary());
 
-  const llm = new LLM();
-  llm.queryConversational('Say hello', schema.getSchema());
+  try {
+    const llm = await LLM.create(schema.getSchemaSummary());
+    const response = await llm.queryConversational('Say hello', schema.getSchema());
+    console.log('LLM Response:', response);
+  } catch (error) {
+    console.error("Failed to initialize or query LLM:", error);
+  }
 }
 
 /**
