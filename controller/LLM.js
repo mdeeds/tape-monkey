@@ -5,6 +5,7 @@
  * @description Encapsulates all interactions with the Gemini API.
  * This is a pure service layer with no dependencies on the application's
  * Model, View, or Controller.
+ * See: https://developer.chrome.com/docs/ai/prompt-api
  */
 export class LLM {
   #session = null;
@@ -105,12 +106,16 @@ ${schemaDescription}
    * 
    * @param {string} text 
    * @param {object} toolSchema 
+   * @returns {Promise<string>}
    */
   async queryConversational(text, toolSchema) {
     if (!this.#session) {
       throw new Error("Session is not initialized.");
     }
-    const response = await this.#session.prompt(text, { outputConstraints: toolSchema })
+    const response = await this.#session.prompt(text, {
+      outputLanguage: ['en'],
+      responseConstraint: toolSchema
+    });
     return response;
   }
 

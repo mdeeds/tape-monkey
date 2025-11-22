@@ -1,6 +1,6 @@
 // @ts-check
 
-import { ToolSchemas } from "./controller/MainController.js";
+import { MainController, ToolSchemas } from "./controller/MainController.js";
 import { ChatInterfaceUI } from "./view/ChatInterfaceUI.js";
 import { LLM } from "./controller/llm.js"
 
@@ -33,16 +33,15 @@ async function main() {
       ChatInterfaceUI.create('Tape Monkey Chat')
     ]);
 
+    const mainController = new MainController(llm, chatUI, schema);
+
     // Listen for messages from the chat popup
     window.addEventListener('message', async (event) => {
       // Basic security check
       if (event.origin !== window.location.origin) {
         return;
       }
-
-      const userMessage = event.data;
-      const response = await llm.queryConversational(userMessage, schema.getSchema());
-      chatUI.addAgentMessage(response);
+      await mainController.handleUserMessage(event.data);
     });
   } catch (error) {
     console.error("Initialization failed:", error);
