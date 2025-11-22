@@ -8,6 +8,19 @@
  */
 
 /**
+ * @class SongParseError
+ * @property {string} message
+ * @property {number} line
+ */
+export class SongParseError {
+  /**
+   * @param {string} message The reason for the parse failure.
+   * @param {number} line The line number where the error occurred.
+   */
+  constructor(message, line) { this.message = message; this.line = line; }
+}
+
+/**
  * @class SongState
  * @description Manages core song data, persistence, and the two-way parsing logic.
  * It also emits events when the song state changes.
@@ -48,18 +61,20 @@ export class SongState extends EventTarget {
   /**
    * Attempts to parse the canonical song text.
    * @param {string} text The canonical song text.
-   * @returns {boolean} True if parsing was successful, false otherwise.
+   * @returns {SongParseError | null} A SongParseError if parsing fails, otherwise null.
    */
   parse(text) {
     const titleBpmRegex = /#\s*(.*)\s*\((\d+)\s*BPM\)/i;
-    const sectionHeaderRegex = /\[([^,]+),\s*Bars:\s*(\d+)\]/g;
+    const sectionHeaderRegex = /\[([^,]+),\s*Bars:\s*(\d+)\]/i;
 
     const lines = text.split('\n');
     const firstLine = lines[0] || '';
     const titleBpmMatch = firstLine.match(titleBpmRegex);
 
     if (!titleBpmMatch) {
-      return false; // Parsing fails if title/BPM header is missing/malformed.
+      return new SongParseError(
+        'Missing or malformed song title/BPM header.'
+        + 'Expected format: # My Song (120 BPM)', 1);
     }
 
     const newTitle = titleBpmMatch[1].trim();
@@ -70,24 +85,27 @@ export class SongState extends EventTarget {
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
-      if (!line) continue;
       const sectionMatch = line.match(sectionHeaderRegex);
 
       if (sectionMatch) {
         if (currentSection) {
-          currentSection.body = currentSection.body.trim();
+          // currentSection.body = currentSection.body.trim();
           newSections.push(currentSection);
         }
-        const sectionName = line.match(/\[([^,]+)/)[1].trim();
-        const barCount = parseInt(line.match(/Bars:\s*(\d+)/)[1], 10);
+        const sectionName = sectionMatch[1].trim();
+        const barCount = parseInt(sectionMatch[2], 10);
         currentSection = { name: sectionName, bar_count: barCount, body: '' };
       } else if (currentSection) {
         currentSection.body += line + '\n';
+      } else {
+        if (!line) continue;
+        return new SongParseError(`Line is not in a section: ${line}` +
+          ' Example section header:[Chorus, Bars: 16]', i + 1);
       }
     }
 
     if (currentSection) {
-      currentSection.body = currentSection.body.trim();
+      // currentSection.body = currentSection.body.trim();
       newSections.push(currentSection);
     }
 
@@ -96,7 +114,7 @@ export class SongState extends EventTarget {
     this.#sections = newSections;
 
     this.dispatchEvent(new CustomEvent('song-state-changed'));
-    return true;
+    return null;
   }
 
   /**
@@ -118,7 +136,6 @@ export class SongState extends EventTarget {
         text += '\n';
       }
     }
-
-    return text.trim();
+    return text;
   }
 }

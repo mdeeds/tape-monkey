@@ -1,5 +1,7 @@
 // @ts-check
 
+const LOCAL_STORAGE_KEY = 'tape-monkey-song-sheet';
+
 /** @typedef {import('../model/SongState.js').SongState} SongState */
 
 /**
@@ -31,8 +33,14 @@ export class SongUI {
     this.#textArea.addEventListener('input', this.#handleTextInput.bind(this));
     this.#songState.addEventListener('song-state-changed', this.#handleStateChange.bind(this));
 
-    // Initialize with current state
-    this.#handleStateChange();
+    const savedText = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (savedText) {
+      this.#textArea.value = savedText;
+      // Immediately parse the loaded text to populate the song state.
+      this.#handleTextInput();
+    } else {
+      this.#handleStateChange();
+    }
   }
 
   /**
@@ -41,14 +49,16 @@ export class SongUI {
    */
   #handleTextInput() {
     const text = this.#textArea.value;
-    const success = this.#songState.parse(text);
+    const parseError = this.#songState.parse(text);
+    const success = !parseError;
 
     if (success) {
       this.#textArea.classList.remove('song-text-invalid');
+      localStorage.setItem(LOCAL_STORAGE_KEY, text);
       console.log('Successful parse.');
     } else {
       this.#textArea.classList.add('song-text-invalid');
-      console.log('Parsing failed.');
+      console.log('Parsing failed.', parseError);
     }
   }
 
