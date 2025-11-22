@@ -1,6 +1,7 @@
 // @ts-check
 
 import { ToolSchemas } from "./controller/MainController.js";
+import { LLM } from "./controller/llm.js"
 
 async function main() {
   // The main logic will go here
@@ -24,6 +25,9 @@ async function main() {
 
   const schema = new ToolSchemas();
   console.log(schema.getSchemaSummary());
+
+  const llm = new LLM();
+  llm.queryConversational('Say hello', schema.getSchema());
 }
 
 /**
