@@ -1,6 +1,7 @@
 // @ts-check
 
 import { ToolSchemas } from "./controller/MainController.js";
+import { ChatInterfaceUI } from "./view/ChatInterfaceUI.js";
 import { LLM } from "./controller/llm.js"
 
 async function main() {
@@ -27,11 +28,24 @@ async function main() {
   console.log(schema.getSchemaSummary());
 
   try {
-    const llm = await LLM.create(schema.getSchemaSummary());
-    const response = await llm.queryConversational('Say hello', schema.getSchema());
-    console.log('LLM Response:', response);
+    const [llm, chatUI] = await Promise.all([
+      LLM.create(schema.getSchemaSummary()),
+      ChatInterfaceUI.create('Tape Monkey Chat')
+    ]);
+
+    // Listen for messages from the chat popup
+    window.addEventListener('message', async (event) => {
+      // Basic security check
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+
+      const userMessage = event.data;
+      const response = await llm.queryConversational(userMessage, schema.getSchema());
+      chatUI.addAgentMessage(response);
+    });
   } catch (error) {
-    console.error("Failed to initialize or query LLM:", error);
+    console.error("Initialization failed:", error);
   }
 }
 
