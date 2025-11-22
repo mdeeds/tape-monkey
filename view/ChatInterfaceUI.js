@@ -51,8 +51,14 @@ export class ChatInterfaceUI {
         `;
 
         const messageContainer = popup.document.getElementById('messages');
+        if (!messageContainer) {
+          throw new Error('messages not found in popup window');
+        }
         const inputArea = /** @type {HTMLTextAreaElement} */ (popup.document.getElementById('chat-input'));
         const sendButton = popup.document.getElementById('send-btn');
+        if (!sendButton) {
+          throw new Error('send-btn not found in popup window');
+        }
 
         const chatUI = new ChatInterfaceUI(popup, messageContainer);
 
