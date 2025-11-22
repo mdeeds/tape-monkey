@@ -64,3 +64,32 @@ button {
 button:hover {
   background-color: #0056b3;
 }
+
+#main-container {
+  display: flex;
+  flex-grow: 1;
+}
+
+#song-sheet-container {
+  padding: 10px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.song-sheet {
+  width: 100%;
+  flex-grow: 1;
+  resize: none;
+  border: 1px solid #ccc;
+  font-family: monospace;
+  font-size: 1rem;
+  background-color: #fff;
+  color: #000;
+}
+
+.song-text-invalid {
+  color: #f00;
+  background-color: #fee;
+  border: 2px solid #f00;
+}

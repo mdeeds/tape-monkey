@@ -97,16 +97,19 @@ export class ToolSchemas {
 export class MainController {
   #llm;
   #chatUI;
+  #songState;
   #toolSchemas;
 
   /**
    * @param {LLM} llm
    * @param {ChatInterfaceUI} chatUI
    * @param {ToolSchemas} toolSchemas
+   * @param {import('../model/SongState.js').SongState} songState
    */
-  constructor(llm, chatUI, toolSchemas) {
+  constructor(llm, chatUI, toolSchemas, songState) {
     this.#llm = llm;
     this.#chatUI = chatUI;
+    this.#songState = songState;
     this.#toolSchemas = toolSchemas;
   }
 
@@ -116,7 +119,7 @@ export class MainController {
   async handleUserMessage(userMessage) {
     const response =
       JSON.parse(
-        await this.#llm.queryConversational(userMessage,
+        await this.#llm.queryConversational(`${userMessage}\n\n${this.#songState.serialize()}`,
           this.#toolSchemas.getSchema())
       );
     for (const toolName in response) {

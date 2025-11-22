@@ -2,7 +2,9 @@
 
 import { MainController, ToolSchemas } from "./controller/MainController.js";
 import { ChatInterfaceUI } from "./view/ChatInterfaceUI.js";
-import { LLM } from "./controller/llm.js"
+import { LLM } from "./controller/llm.js";
+import { SongState } from "./model/SongState.js";
+import { SongUI } from "./view/SongUI.js";
 
 async function main() {
   // The main logic will go here
@@ -24,16 +26,23 @@ async function main() {
     // You could show an error message to the user here.
   }
 
+  const songState = new SongState();
+  const mainContainer = document.getElementById('main-container');
+  if (!mainContainer) {
+    throw new Error('Main container not found');
+  }
+  const songUI = new SongUI(mainContainer, songState);
+
   const schema = new ToolSchemas();
   console.log(schema.getSchemaSummary());
 
   try {
     const [llm, chatUI] = await Promise.all([
       LLM.create(schema.getSchemaSummary()),
-      ChatInterfaceUI.create('Tape Monkey Chat')
+      ChatInterfaceUI.create('Tape Monkey Chat'),
     ]);
 
-    const mainController = new MainController(llm, chatUI, schema);
+    const mainController = new MainController(llm, chatUI, schema, songState);
 
     // Listen for messages from the chat popup
     window.addEventListener('message', async (event) => {
@@ -63,13 +72,19 @@ function createAudioContext() {
 
 function init() {
   const startButton = document.createElement('button');
+  const mainContainer = document.createElement('div');
+  mainContainer.id = 'main-container';
+  mainContainer.style.display = 'none'; // Hide until start
+
   startButton.textContent = 'Start';
 
   startButton.addEventListener('click', () => {
     startButton.remove();
+    mainContainer.style.display = 'flex';
     main();
   }, { once: true });
 
+  document.body.appendChild(mainContainer);
   document.body.appendChild(startButton);
 }
 
