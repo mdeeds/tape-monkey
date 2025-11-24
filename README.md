@@ -17,8 +17,10 @@ The application's logic is segregated into specialized files, organized into log
 | Logical Folder | File Name | Component Type | Primary Responsibility |
 | :---- | :---- | :---- | :---- |
 | **/model** | SongState.js | State Model | Manages core song data, persistence, and the two-way parsing logic. |
-|  | TapeDeckEngine.js | Engine Model / Tool Handler | Implements playback, recording, and transport logic (Play, Stop, Loop). |
+|  | TapeDeckEngine.js | Engine Model / Tool Handler | Implements playback, recording, and transport logic. Uses `SongState` for timing. |
 |  | MixerEngine.js | Engine Model | Implements volume, pan, and mute logic for specific stems (monitoring mix only). |
+|  | MetronomeEngine.js | Engine Model / Tool Handler | Manages the metronome, handling start/stop tools and syncing with `SongState`. |
+|  | MetronomeProcessor.js | Audio Worklet | Generates the precise audio clicks for the metronome. |
 | **/view** | SongUI.js | Rendering View | Renders the visual song timeline and highlights the current playing/recording section. |
 |  | ChatInterfaceUI.js | Rendering View | Renders the user text input, STT button, and the conversation history. |
 | **/controller** | MainController.js | Application Controller | Handles user input, delegates tool calls, and coordinates updates. |
@@ -34,8 +36,8 @@ The system operates on a loop where the Gemini LLM is the central decision-maker
 2. **Controller Intercept & Context Injection:** MainController.js captures the text and queries SongState.js for the **current Canonical Song Text**. It then calls the LLM.js service's conversational query method, **injecting the song text into the LLM's system context/prompt.**  
 3. **LLM API Call:** LLM.js constructs the API payload, including the user's text, the current song structure context, and the schemas for available **Tool Functions** from the Engine Models.  
 4. **LLM Decision:** The LLM decides whether to execute a specific Tool Function (e.g., set\_volume) or return a conversational message via the **message tool**. The output is always a structured JSON object representing the chosen tool call.  
-5. **Tool Execution:** MainController.js receives the structured JSON and iterates through a list of registered **Tool Handlers** (e.g., `TapeDeckEngine`, `MainController` itself). It calls the first handler that reports it can execute the tool. If it's the `message` tool, the Controller displays the content to the user.  
-6. **State Update & Feedback:** The Engine Model updates the state in SongState.js. SongState.js broadcasts a song-state-changed event, which triggers SongUI.js to redraw (e.g., highlighting the playing section).
+5. **Tool Execution:** MainController.js receives the structured JSON and iterates through a list of registered **Tool Handlers** (e.g., `MetronomeEngine`, `TapeDeckEngine`, `SongState`, and `MainController` itself). It calls the first handler that reports it can execute the tool. If it's the `message` tool, the Controller displays the content to the user.  
+6. **State Update & Feedback:** A tool handler (like `SongState` or `TapeDeckEngine`) updates its internal state. If `SongState` is modified, it broadcasts a `song-state-changed` event. Other components like `SongUI` and `MetronomeEngine` listen for this event to automatically update themselves.
 
 ## **5\. The Structural Coherence Solution**
 
@@ -47,7 +49,7 @@ The user-facing text box requires a simple, parsable format to define song secti
 
 **Format Rules:**
 
-1. **Tempo Header (Global):** Must define the singular project tempo (e.g., \# Song Title: My Track (120 BPM)).  
+1. **Header (Global):** Must define the song title, tempo, and time signature (e.g., `# My Track (120 BPM, 4/4)`).  
 2. **Section Header:** Sections must start with a consistent header pattern defining the bar count (e.g., \[Verse 1, Bars: 16\]).  
 3. **Content:** Lyrical and chord content resides between headers.
 
@@ -100,12 +102,15 @@ These methods are exposed to the LLM via tool definitions in the API payload. No
 | **LLM Interface** | message | content: string | **(MANDATORY TOOL)** Sends a natural language text response back to the musician. Used when no engine action is required. |
 | **LLM Interface** | no\_action | None | **(FUTURE TOOL)** Instructs the Controller that the received STT input does not contain a directed command and should be accumulated with subsequent speech for the next LLM call. |
 | TapeDeckEngine | play | sections: string[], [loop: boolean] | Begins playback of specified sections. |
-|  | record | sections: string[] | Records over the specified sections on the armed track. |
-|  | arm | track_number: number | Arms a specific track for recording. |
+| TapeDeckEngine | record | sections: string[] | Records over the specified sections on the armed track. |
+| TapeDeckEngine | arm | track_number: number | Arms a specific track for recording. |
+| MetronomeEngine | start\_metronome | [volume: number] | Starts the metronome click. |
+| MetronomeEngine | stop\_metronome | None | Stops the metronome click. |
 | MixerEngine | set\_volume | stem\_name: string, level\_db: number | Sets the volume of a specific stem to a decibel level (for monitoring mix only). |
 |  | toggle\_mute | stem\_name: string | Mutes or unmutes a specific stem (for monitoring mix only). |
+| SongState | update\_song\_attributes | [bpm: number], [beats\_per\_bar: number] | Updates the song's tempo or time signature. |
 | MainController | create\_section | name: string, bar_count: number, [body: string] | Adds a new song section. |
-|  | update\_section | name: string, [bar_count: number], [body: string] | Reorders the entire song structure. |
+| MainController | update\_section | name: string, [bar_count: number], [body: string] | Updates an existing song section. |
 
 ### **7.2. Persistence and Export Strategy**
 
