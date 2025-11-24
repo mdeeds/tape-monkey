@@ -17,11 +17,12 @@ The application's logic is segregated into specialized files, organized into log
 | Logical Folder | File Name | Component Type | Primary Responsibility |
 | :---- | :---- | :---- | :---- |
 | **/model** | SongState.js | State Model | Manages core song data, persistence, and the two-way parsing logic. |
-|  | TapeDeckEngine.js | Engine Model | Implements playback, recording, and transport logic (Play, Stop, Loop). |
+|  | TapeDeckEngine.js | Engine Model / Tool Handler | Implements playback, recording, and transport logic (Play, Stop, Loop). |
 |  | MixerEngine.js | Engine Model | Implements volume, pan, and mute logic for specific stems (monitoring mix only). |
 | **/view** | SongUI.js | Rendering View | Renders the visual song timeline and highlights the current playing/recording section. |
 |  | ChatInterfaceUI.js | Rendering View | Renders the user text input, STT button, and the conversation history. |
-| **/controller** | MainController.js | Application Controller | Handles user input, executes tool calls, and coordinates updates. |
+| **/controller** | MainController.js | Application Controller | Handles user input, delegates tool calls, and coordinates updates. |
+|  | ToolHandler.js | Interface | Defines a standard contract for any component that can execute tool calls. |
 |  | LLM.js | LLM Abstraction Service | Encapsulates all interactions with the Gemini API (conversational and correction calls). |
 | **Root** | script.js | Entry Point | Application initialization, module imports, and initial setup. |
 
@@ -33,7 +34,7 @@ The system operates on a loop where the Gemini LLM is the central decision-maker
 2. **Controller Intercept & Context Injection:** MainController.js captures the text and queries SongState.js for the **current Canonical Song Text**. It then calls the LLM.js service's conversational query method, **injecting the song text into the LLM's system context/prompt.**  
 3. **LLM API Call:** LLM.js constructs the API payload, including the user's text, the current song structure context, and the schemas for available **Tool Functions** from the Engine Models.  
 4. **LLM Decision:** The LLM decides whether to execute a specific Tool Function (e.g., set\_volume) or return a conversational message via the **message tool**. The output is always a structured JSON object representing the chosen tool call.  
-5. **Tool Execution:** MainController.js receives the structured JSON. If it's a structural or engine tool (e.g., MixerEngine.toggle\_mute), the Controller executes the corresponding method. If it's the message tool, the Controller displays the content to the user.  
+5. **Tool Execution:** MainController.js receives the structured JSON and iterates through a list of registered **Tool Handlers** (e.g., `TapeDeckEngine`, `MainController` itself). It calls the first handler that reports it can execute the tool. If it's the `message` tool, the Controller displays the content to the user.  
 6. **State Update & Feedback:** The Engine Model updates the state in SongState.js. SongState.js broadcasts a song-state-changed event, which triggers SongUI.js to redraw (e.g., highlighting the playing section).
 
 ## **5\. The Structural Coherence Solution**
@@ -81,11 +82,12 @@ The LLM.js file is a pure service layer, managing all communication with the Gem
 
 ### **6.2. Tool Interface Contract**
 
-To ensure the LLM outputs executable commands, the system uses a strict contract enforced by the local Gemini API's JSON output constraint.
+To ensure the LLM outputs executable commands in a scalable and decoupled way, the system uses a `ToolHandler` interface.
 
 * **Tool Schema Definition:** The MainController.js defines and provides LLM.js with a JSON schema for every available Engine Model function, including the conversational tools.  
 * **JSON Output Constraint:** For the in-browser LLM, the API is constrained to return a structured JSON object representing the intended function call.  
-* **Execution in MainController.js:** The Controller receives this JSON object and maps the function name and arguments to the actual JavaScript method and parameters on the relevant Engine Model instance, or handles the conversational/null output if a specific LLM tool is called.
+* **ToolHandler Interface:** A component that can execute tools (like `TapeDeckEngine` or `MainController`) implements the `ToolHandler` interface, which consists of two methods: `canHandle(toolName)` and `callTool(toolName, args)`.
+* **Delegation in MainController.js:** The `MainController` maintains a list of `ToolHandler` instances. When it receives a JSON object from the LLM, it iterates through its handlers, asking each one if it `canHandle` the tool. The first handler to return `true` is then asked to `callTool`, effectively delegating the execution. This decouples the `MainController` from knowing the implementation details of every tool.
 
 ## **7\. Engine Model APIs and Persistence**
 
@@ -97,12 +99,13 @@ These methods are exposed to the LLM via tool definitions in the API payload. No
 | :---- | :---- | :---- | :---- |
 | **LLM Interface** | message | content: string | **(MANDATORY TOOL)** Sends a natural language text response back to the musician. Used when no engine action is required. |
 | **LLM Interface** | no\_action | None | **(FUTURE TOOL)** Instructs the Controller that the received STT input does not contain a directed command and should be accumulated with subsequent speech for the next LLM call. |
-| TapeDeckEngine | start\_playback | None | Begins playback from the current position. |
-|  | set\_loop\_points | start\_section: string, end\_section: string | Sets a loop region between two defined song sections. |
+| TapeDeckEngine | play | sections: string[], [loop: boolean] | Begins playback of specified sections. |
+|  | record | sections: string[] | Records over the specified sections on the armed track. |
+|  | arm | track_number: number | Arms a specific track for recording. |
 | MixerEngine | set\_volume | stem\_name: string, level\_db: number | Sets the volume of a specific stem to a decibel level (for monitoring mix only). |
 |  | toggle\_mute | stem\_name: string | Mutes or unmutes a specific stem (for monitoring mix only). |
-| SongState | add\_section | name: string, bars: number, preceding\_section: string | Adds a new song section and triggers text box serialization. |
-|  | reorder\_sections | section\_names\_in\_order: array\<string\> | Reorders the entire song structure. |
+| MainController | create\_section | name: string, bar_count: number, [body: string] | Adds a new song section. |
+|  | update\_section | name: string, [bar_count: number], [body: string] | Reorders the entire song structure. |
 
 ### **7.2. Persistence and Export Strategy**
 

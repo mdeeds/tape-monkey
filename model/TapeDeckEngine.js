@@ -1,11 +1,13 @@
 // @ts-check
 
 import { Track } from './Track.js';
+import { ToolHandler } from '../controller/ToolHandler.js';
 
 /**
  * Manages audio recording from an input stream into multiple tracks using an Audio Worklet.
+ * @implements {ToolHandler}
  */
-export class TapeDeckEngine {
+export class TapeDeckEngine extends ToolHandler {
   /** @type {AudioContext} */
   #audioContext;
   /** @type {MediaStream} */
@@ -45,6 +47,7 @@ export class TapeDeckEngine {
    * @param {MediaStream} audioStream The user's audio input stream.
    */
   constructor(audioContext, audioStream) {
+    super();
     this.#audioContext = audioContext;
     this.#audioStream = audioStream;
     // Note: The constructor is private. Use the static `create` method instead.
@@ -120,5 +123,46 @@ export class TapeDeckEngine {
     const startDelayInSeconds = 0.050; // 50ms
     this.#recordingStartFrame = Math.round(this.#audioContext.currentTime * this.#audioContext.sampleRate) + Math.round(startDelayInSeconds * this.#audioContext.sampleRate);
     this.#isRecording = true;
+  }
+
+  /**
+   * Checks if this handler can process the given tool.
+   * @override
+   * @param {string} toolName The name of the tool.
+   * @returns {boolean} True if the tool can be handled, false otherwise.
+   */
+  canHandle(toolName) {
+    return ['arm', 'play', 'record'].includes(toolName);
+  }
+
+  /**
+   * Calls the specified tool with the given arguments.
+   * @override
+   * @param {string} toolName The name of the tool to call.
+   * @param {object} args The arguments for the tool.
+   * @returns {Promise<string|void>} A string result from the tool execution, or nothing.
+   */
+  async callTool(toolName, args) {
+    switch (toolName) {
+      case 'arm':
+        this.#arm(args.track_number);
+        break;
+      case 'play':
+        this.#play(args.sections);
+        break;
+      case 'record':
+        this.#record(args.sections);
+        break;
+    }
+  }
+
+  #arm(trackNumber) {
+    console.log(`Arming track ${trackNumber}`);
+  }
+  #play(sections) {
+    console.log(`Playing sections: ${sections.join(', ')}`);
+  }
+  #record(sections) {
+    console.log(`Recording sections: ${sections.join(', ')}`);
   }
 }

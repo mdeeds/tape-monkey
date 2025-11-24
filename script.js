@@ -1,6 +1,7 @@
 // @ts-check
 
-import { MainController, ToolSchemas } from "./controller/MainController.js";
+import { MainController } from "./controller/MainController.js";
+import { ToolSchemas } from "./controller/ToolSchemas.js";
 import { ChatInterfaceUI } from "./view/ChatInterfaceUI.js";
 import { LLM } from "./controller/llm.js";
 import { SongState } from "./model/SongState.js";
