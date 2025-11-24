@@ -1,10 +1,12 @@
 // @ts-check
 
 import { ToolSchemas } from "./ToolSchemas.js";
+import { ToolHandler } from "./ToolHandler.js";
 
 /**
  * @typedef {import('./llm.js').LLM} LLM
  * @typedef {import('../view/ChatInterfaceUI.js').ChatInterfaceUI} ChatInterfaceUI
+ * @typedef {import('../model/SongState.js').SongState} SongState
  */
 
 /**
@@ -16,18 +18,22 @@ export class MainController {
   #chatUI;
   #songState;
   #toolSchemas;
+  /** @type {ToolHandler[]} */
+  #toolHandlers;
 
   /**
    * @param {LLM} llm
    * @param {ChatInterfaceUI} chatUI
    * @param {ToolSchemas} toolSchemas
-   * @param {import('../model/SongState.js').SongState} songState
+   * @param {SongState} songState
+   * @param {ToolHandler[]} toolHandlers
    */
-  constructor(llm, chatUI, toolSchemas, songState) {
+  constructor(llm, chatUI, toolSchemas, songState, toolHandlers) {
     this.#llm = llm;
     this.#chatUI = chatUI;
     this.#songState = songState;
     this.#toolSchemas = toolSchemas;
+    this.#toolHandlers = toolHandlers;
   }
 
   /**
@@ -42,22 +48,24 @@ export class MainController {
     for (const toolName in response) {
       if (Object.hasOwnProperty.call(response, toolName)) {
         const toolParams = response[toolName];
-        console.log(`Tool call: ${toolName}`, toolParams);
-        switch (toolName) {
-          case 'message':
-            this.#chatUI.addAgentMessage(toolParams.text);
-            break;
-          case 'create_section':
-            console.log('Tool call: create_section', toolParams);
-            if (toolParams.name) {
-              this.#toolSchemas.addSongSectionName(toolParams.name);
-            }
-            break;
-          default:
-            console.error(`Unknown tool call: ${toolName}`);
-            break;
-        }
+        await this.callTool(toolName, toolParams);
       }
     }
   }
+}
+
+  async callTool(toolName, args) {
+  for (const handler of this.#toolHandlers) {
+    if (handler.canHandle(toolName)) {
+      console.log(`Tool call: ${toolName} handled by ${handler.constructor.name}`, args);
+      await handler.callTool(toolName, args);
+      return;
+    }
+  }
+  console.error(`Unknown tool call: ${toolName}`);
+}
+
+canHandle(toolName) {
+  return ['message', 'create_section', 'update_section'].includes(toolName);
+}
 }

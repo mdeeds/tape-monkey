@@ -6,6 +6,8 @@ import { ChatInterfaceUI } from "./view/ChatInterfaceUI.js";
 import { LLM } from "./controller/llm.js";
 import { SongState } from "./model/SongState.js";
 import { SongUI } from "./view/SongUI.js";
+import { TapeDeckEngine } from "./model/TapeDeckEngine.js";
+import { MetronomeEngine } from "./model/MetronomeEngine.js";
 
 async function main() {
   // The main logic will go here
@@ -24,7 +26,7 @@ async function main() {
     console.log("Audio stream obtained.", audioStream);
   } catch (err) {
     console.error("Error obtaining audio stream:", err);
-    // You could show an error message to the user here.
+    throw new Error("Error obtaining audio stream");
   }
 
   const songState = new SongState();
@@ -33,6 +35,11 @@ async function main() {
     throw new Error('Main container not found');
   }
   const songUI = new SongUI(mainContainer, songState);
+
+  if (audioContext) {
+    metronomeEngine = await MetronomeEngine.create(audioContext, songState);
+    tapeDeckEngine = await TapeDeckEngine.create(audioContext, audioStream);
+  }
 
   const schema = new ToolSchemas();
   console.log(schema.getSchemaSummary());
@@ -43,7 +50,11 @@ async function main() {
       ChatInterfaceUI.create('Tape Monkey Chat'),
     ]);
 
-    const mainController = new MainController(llm, chatUI, schema, songState);
+    const toolHandlers = [metronomeEngine, tapeDeckEngine, songState].filter(Boolean);
+
+    const mainController = new MainController(llm, chatUI, schema, songState, toolHandlers);
+    // The controller can also handle tools
+    toolHandlers.push(mainController);
 
     // Listen for messages from the chat popup
     window.addEventListener('message', async (event) => {

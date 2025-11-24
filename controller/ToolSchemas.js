@@ -52,6 +52,23 @@ export class ToolSchemas {
             track_number: { type: "number", minimum: 1, maximum: 16 }
           },
           required: ["track_number"]
+        },
+        start_metronome: {
+          type: "object",
+          properties: {
+            volume: { type: "number", minimum: 0, maximum: 1 }
+          }
+        },
+        stop_metronome: {
+          type: "object",
+          properties: {}
+        },
+        update_song_attributes: {
+          type: "object",
+          properties: {
+            bpm: { type: "number" },
+            beats_per_bar: { type: "number" }
+          }
         }
       },
       create_section: {
