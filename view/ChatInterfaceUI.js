@@ -1,10 +1,13 @@
 // @ts-check
 
+import { ToolHandler } from '../controller/ToolHandler.js';
+
 /**
  * @class ChatInterfaceUI
  * @description Manages a popup window for chat interactions.
+ * @implements {ToolHandler}
  */
-export class ChatInterfaceUI {
+export class ChatInterfaceUI extends ToolHandler {
   #popup = null;
   #messageContainer = null;
 
@@ -15,6 +18,7 @@ export class ChatInterfaceUI {
    * @param {HTMLElement} messageContainer
    */
   constructor(popup, messageContainer) {
+    super();
     this.#popup = popup;
     this.#messageContainer = messageContainer;
   }
@@ -130,6 +134,38 @@ export class ChatInterfaceUI {
       messageDiv.textContent = message;
       this.#messageContainer.appendChild(messageDiv);
       this.#messageContainer.scrollTop = this.#messageContainer.scrollHeight;
+    }
+  }
+
+  /**
+   * Closes the popup window if it's open.
+   */
+  close() {
+    if (this.#popup && !this.#popup.closed) {
+      this.#popup.close();
+    }
+  }
+
+  /**
+   * Checks if this handler can process the 'message' tool.
+   * @override
+   * @param {string} toolName The name of the tool.
+   * @returns {boolean} True if the tool is 'message', false otherwise.
+   */
+  canHandle(toolName) {
+    return toolName === 'message';
+  }
+
+  /**
+   * Displays a message from the agent in the chat window.
+   * @override
+   * @param {string} toolName The name of the tool to call.
+   * @param {{ text: string }} args The arguments for the tool.
+   * @returns {Promise<void>}
+   */
+  async callTool(toolName, args) {
+    if (this.canHandle(toolName)) {
+      this.addAgentMessage(args.text);
     }
   }
 }
