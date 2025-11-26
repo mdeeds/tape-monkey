@@ -68,7 +68,8 @@ class MetronomeProcessor extends AudioWorkletProcessor {
   process(inputs, outputs) {
     const output = outputs[0];
     const leftChannel = output[0];
-    const rightChannel = output[1];
+    let rightChannel = null;
+    if (output.length > 1) rightChannel = output[1];
 
     const framesPerBeat = (60 / this.#bpm) * sampleRate;
 
@@ -97,7 +98,7 @@ class MetronomeProcessor extends AudioWorkletProcessor {
       }
 
       leftChannel[i] = sample;
-      rightChannel[i] = sample;
+      if (rightChannel) { rightChannel[i] = sample };
     }
 
     return true;

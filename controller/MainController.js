@@ -52,20 +52,23 @@ export class MainController {
       }
     }
   }
-}
 
+  /**
+   * @param {string} toolName
+   * @param {object} args
+   */
   async callTool(toolName, args) {
-  for (const handler of this.#toolHandlers) {
-    if (handler.canHandle(toolName)) {
-      console.log(`Tool call: ${toolName} handled by ${handler.constructor.name}`, args);
-      await handler.callTool(toolName, args);
-      return;
+    for (const handler of this.#toolHandlers) {
+      if (handler.canHandle(toolName)) {
+        console.log(`Tool call: ${toolName} handled by ${handler.constructor.name}`, args);
+        await handler.callTool(toolName, args);
+        return;
+      }
     }
+    console.error(`Unknown tool call: ${toolName}`);
   }
-  console.error(`Unknown tool call: ${toolName}`);
-}
 
-canHandle(toolName) {
-  return ['message', 'create_section', 'update_section'].includes(toolName);
-}
+  canHandle(toolName) {
+    return ['message', 'create_section', 'update_section'].includes(toolName);
+  }
 }

@@ -26,9 +26,10 @@ export class SongParseError {
  * @class SongState
  * @description Manages core song data, persistence, and the two-way parsing logic.
  * It also emits events when the song state changes.
+ * @extends {EventTarget}
  * @implements {ToolHandler}
  */
-export class SongState extends ToolHandler {
+export class SongState extends EventTarget {
   /** @type {string | null} */
   #title = null;
   /** @type {number | null} */

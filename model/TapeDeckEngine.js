@@ -27,7 +27,7 @@ export class TapeDeckEngine extends ToolHandler {
    * The path to the audio worklet processor.
    * @type {string}
    */
-  static WORKLET_PROCESSOR_PATH = 'recorder-worklet-processor.js';
+  static WORKLET_PROCESSOR_PATH = 'model/RecordingProcessor.js';
 
   /**
    * Asynchronously creates and initializes a TapeDeckEngine instance.
