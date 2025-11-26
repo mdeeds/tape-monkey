@@ -42,17 +42,16 @@ async function main() {
   const schema = new ToolSchemas();
   console.log(schema.getSchemaSummary());
 
+  let chatUI;
   try {
-    const [llm, chatUI] = await Promise.all([
+    const [llm, newChatUI] = await Promise.all([
       LLM.create(schema.getSchemaSummary()),
       ChatInterfaceUI.create('Tape Monkey Chat'),
     ]);
+    chatUI = newChatUI;
 
-    const toolHandlers = [metronomeEngine, tapeDeckEngine, songState].filter(Boolean);
-
+    const toolHandlers = [metronomeEngine, tapeDeckEngine, songState, chatUI];
     const mainController = new MainController(llm, chatUI, schema, songState, toolHandlers);
-    // The controller can also handle tools
-    toolHandlers.push(mainController);
 
     // Listen for messages from the chat popup
     window.addEventListener('message', async (event) => {
@@ -61,6 +60,11 @@ async function main() {
         return;
       }
       await mainController.handleUserMessage(event.data);
+    });
+
+    // Close the chat popup when the main window is closed or refreshed.
+    window.addEventListener('beforeunload', () => {
+      chatUI?.close();
     });
   } catch (error) {
     console.error("Initialization failed:", error);
