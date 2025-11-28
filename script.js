@@ -37,7 +37,7 @@ async function main() {
   const songUI = new SongUI(mainContainer, songState);
 
   const metronomeEngine = await MetronomeEngine.create(audioContext, songState);
-  const tapeDeckEngine = await TapeDeckEngine.create(audioContext, audioStream);
+  const tapeDeckEngine = await TapeDeckEngine.create(audioContext, audioStream, songState);
 
   const schema = new ToolSchemas();
   console.log(schema.getSchemaSummary());

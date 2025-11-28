@@ -109,4 +109,32 @@ export class Track {
   get buffers() {
     return this.#buffers;
   }
+
+  /**
+   * Creates an AudioBufferSourceNode for a specific time range of the track.
+   * @param {AudioContext} audioContext The audio context to create the node in.
+   * @param {number} startTime The start time in seconds within the track.
+   * @param {number} endTime The end time in seconds within the track.
+   * @param {boolean} loop Whether the created source node should loop.
+   * @returns {AudioBufferSourceNode | null} An AudioBufferSourceNode or null if the track is empty in that range.
+   */
+  createSourceNode(audioContext, startTime, endTime, loop) {
+    const startFrame = Math.floor(startTime * this.#sampleRate);
+    const endFrame = Math.ceil(endTime * this.#sampleRate);
+    const durationFrames = endFrame - startFrame;
+
+    if (durationFrames <= 0) {
+      return null;
+    }
+
+    const audioBuffer = audioContext.createBuffer(2, durationFrames, this.#sampleRate);
+    audioBuffer.copyToChannel(this.#buffers[0].subarray(startFrame, endFrame), 0);
+    audioBuffer.copyToChannel(this.#buffers[1].subarray(startFrame, endFrame), 1);
+
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.loop = loop;
+
+    return source;
+  }
 }

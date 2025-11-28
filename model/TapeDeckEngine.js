@@ -2,6 +2,8 @@
 
 import { Track } from './Track.js';
 import { ToolHandler } from '../controller/ToolHandler.js';
+import { SongState } from './SongState.js';
+import { MixerEngine } from './MixerEngine.js';
 
 /**
  * Manages audio recording from an input stream into multiple tracks using an Audio Worklet.
@@ -22,6 +24,10 @@ export class TapeDeckEngine extends ToolHandler {
   #isRecording = false;
   /** @type {number | null} */
   #recordingStartFrame = null;
+  /** @type {SongState} */
+  #songState;
+  /** @type {MixerEngine} */
+  #mixerEngine;
 
   /**
    * The path to the audio worklet processor.
@@ -33,10 +39,12 @@ export class TapeDeckEngine extends ToolHandler {
    * Asynchronously creates and initializes a TapeDeckEngine instance.
    * @param {AudioContext} audioContext The global audio context.
    * @param {MediaStream} audioStream The user's audio input stream.
+   * @param {SongState} songState The application's song state.
+   * @param {MixerEngine} mixerEngine The mixer engine.
    * @returns {Promise<TapeDeckEngine>}
    */
-  static async create(audioContext, audioStream) {
-    const engine = new TapeDeckEngine(audioContext, audioStream);
+  static async create(audioContext, audioStream, songState, mixerEngine) {
+    const engine = new TapeDeckEngine(audioContext, audioStream, songState, mixerEngine);
     await engine.#initialize();
     return engine;
   }
@@ -45,11 +53,15 @@ export class TapeDeckEngine extends ToolHandler {
    * @private
    * @param {AudioContext} audioContext The global audio context.
    * @param {MediaStream} audioStream The user's audio input stream.
+   * @param {SongState} songState The application's song state.
+   * @param {MixerEngine} mixerEngine The mixer engine.
    */
-  constructor(audioContext, audioStream) {
+  constructor(audioContext, audioStream, songState, mixerEngine) {
     super();
     this.#audioContext = audioContext;
     this.#audioStream = audioStream;
+    this.#songState = songState;
+    this.#mixerEngine = mixerEngine;
     // Note: The constructor is private. Use the static `create` method instead.
 
     // Initialize 16 stereo tracks
@@ -59,14 +71,15 @@ export class TapeDeckEngine extends ToolHandler {
   }
 
   /**
-   * @private
    * Loads the worklet and sets up the audio graph.
    */
   async #initialize() {
     try {
-      await this.#audioContext.audioWorklet.addModule(TapeDeckEngine.WORKLET_PROCESSOR_PATH);
+      await this.#audioContext.audioWorklet.addModule(
+        TapeDeckEngine.WORKLET_PROCESSOR_PATH);
     } catch (e) {
-      console.error(`Failed to load audio worklet at ${TapeDeckEngine.WORKLET_PROCESSOR_PATH}`, e);
+      console.error(
+        `Failed to load audio worklet at ${TapeDeckEngine.WORKLET_PROCESSOR_PATH}`, e);
       throw e;
     }
 
@@ -126,13 +139,21 @@ export class TapeDeckEngine extends ToolHandler {
   }
 
   /**
+   * Stops recording on the currently active track.
+   */
+  stop() {
+    this.#isRecording = false;
+    this.#recordingStartFrame = null;
+  }
+
+  /**
    * Checks if this handler can process the given tool.
    * @override
    * @param {string} toolName The name of the tool.
    * @returns {boolean} True if the tool can be handled, false otherwise.
    */
   canHandle(toolName) {
-    return ['arm', 'play', 'record'].includes(toolName);
+    return ['arm', 'play', 'record', 'stop'].includes(toolName);
   }
 
   /**
@@ -153,15 +174,88 @@ export class TapeDeckEngine extends ToolHandler {
       case 'record':
         this.#record(args.sections);
         break;
+      case 'stop':
+        this.stop();
+        break;
     }
   }
 
+  /**
+   * Calculates the start and end time for a list of song sections.
+   * @param {string[]} sectionNames An array of section names.
+   * @returns {{startTime: number, endTime: number} | null} An object with the 
+   * start and end times in seconds, or null if no valid sections are found.
+   */
+  #getSectionsTimeInterval(sectionNames) {
+    let minStartTime = Infinity;
+    let maxEndTime = -1;
+
+    if (!sectionNames || sectionNames.length === 0) {
+      return null;
+    }
+
+    for (const sectionName of sectionNames) {
+      const startTime = this.#songState.getSectionStartTime(sectionName);
+      if (startTime === -1) {
+        console.warn(`Section "${sectionName}" not found. Skipping.`);
+        continue;
+      }
+
+      const duration = this.#songState.getSectionDuration(sectionName);
+      const endTime = startTime + duration;
+
+      if (startTime < minStartTime) {
+        minStartTime = startTime;
+      }
+      if (endTime > maxEndTime) {
+        maxEndTime = endTime;
+      }
+    }
+
+    if (minStartTime === Infinity) {
+      return null; // No valid sections were found
+    }
+
+    return { startTime: minStartTime, endTime: maxEndTime };
+  }
+
+  /**
+   * 
+   * @param {number} trackNumber 
+   */
   #arm(trackNumber) {
     console.log(`Arming track ${trackNumber}`);
   }
-  #play(sections) {
-    console.log(`Playing sections: ${sections.join(', ')}`);
+
+  /**
+   * 
+   * @param {string[]} sections 
+   * @param {boolean} loop 
+   * @returns 
+   */
+  #play(sections, loop = false) {
+    const timeInterval = this.#getSectionsTimeInterval(sections);
+    if (!timeInterval) {
+      console.log('No sections to play.');
+      return;
+    }
+
+    console.log(`Playing sections: ${sections.join(', ')} from ${timeInterval.startTime}s to ${timeInterval.endTime}s`);
+
+    for (let i = 0; i < this.#tracks.length; i++) {
+      const track = this.#tracks[i];
+      const source = track.createSourceNode(this.#audioContext, timeInterval.startTime, timeInterval.endTime, loop);
+      if (source) {
+        source.connect(this.#mixerEngine.getChannelInput(i));
+        source.start(this.#audioContext.currentTime, timeInterval.startTime);
+      }
+    }
   }
+
+  /**
+   * 
+   * @param {string[]} sections 
+   */
   #record(sections) {
     console.log(`Recording sections: ${sections.join(', ')}`);
   }
