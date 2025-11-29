@@ -13,14 +13,18 @@ class Channel {
   // Nodes
   /** @type {GainNode} The entry point for audio into this channel. */
   inputNode;
+  /** @type {GainNode} For controlling the preamp gain. */
+  #gainNode;
+  /** @type {WaveShaperNode} For applying soft clipping/saturation. */
+  #softClipNode;
   /** @type {GainNode} Used to sum stereo to mono. */
   #monoSumNode;
   /** @type {StereoPannerNode} For panning the audio. */
   #pannerNode;
   /** @type {GainNode} For muting the channel. */
   #muteNode;
-  /** @type {GainNode} For controlling the channel's volume. */
-  #volumeNode;
+  /** @type {GainNode} For controlling the channel's level (fader). */
+  #levelNode;
   /** @type {GainNode} The exit point for audio from this channel. */
   outputNode;
 
@@ -29,7 +33,8 @@ class Channel {
   #pan = 0;
   #mute = false;
   #solo = false;
-  #volumeDB = 0;
+  #gainDB = 0;
+  #levelDB = 0;
 
   /**
    * @param {AudioContext} audioContext
@@ -38,16 +43,21 @@ class Channel {
     this.#audioContext = audioContext;
 
     this.inputNode = this.#audioContext.createGain();
+    this.#gainNode = this.#audioContext.createGain();
+    this.#softClipNode = this.#audioContext.createWaveShaper();
+    this.#softClipNode.curve = this.#createSoftClipCurve();
     this.#monoSumNode = this.#audioContext.createGain();
     this.#pannerNode = this.#audioContext.createStereoPanner();
     this.#muteNode = this.#audioContext.createGain();
-    this.#volumeNode = this.#audioContext.createGain();
+    this.#levelNode = this.#audioContext.createGain();
     this.outputNode = this.#audioContext.createGain();
 
     // Initial signal path for stereo
-    this.inputNode.connect(this.#pannerNode);
-    this.#pannerNode.connect(this.#volumeNode);
-    this.#volumeNode.connect(this.#muteNode);
+    this.inputNode.connect(this.#gainNode);
+    this.#gainNode.connect(this.#softClipNode);
+    this.#softClipNode.connect(this.#pannerNode);
+    this.#pannerNode.connect(this.#levelNode);
+    this.#levelNode.connect(this.#muteNode);
     this.#muteNode.connect(this.outputNode);
   }
 
@@ -56,14 +66,16 @@ class Channel {
     if (this.#inputIsMono === isMono) return;
     this.#inputIsMono = isMono;
 
-    this.inputNode.disconnect();
+    this.#softClipNode.disconnect();
     if (isMono) {
       // Route both left and right to the mono sum node, then to panner
-      this.inputNode.connect(this.#monoSumNode);
+      this.#softClipNode.connect(this.#monoSumNode);
       this.#monoSumNode.connect(this.#pannerNode);
     } else {
       // Route directly to panner for stereo
-      this.inputNode.connect(this.#pannerNode);
+      if (this.#monoSumNode.numberOfOutputs > 0)
+        this.#monoSumNode.disconnect();
+      this.#softClipNode.connect(this.#pannerNode);
     }
   }
 
@@ -73,12 +85,35 @@ class Channel {
     this.#pannerNode.pan.setValueAtTime(panValue, this.#audioContext.currentTime);
   }
 
-  /** @param {number} volumeDB */
-  setVolumeDB(volumeDB) {
-    this.#volumeDB = volumeDB;
+  /** @param {number} gainDB */
+  setGainDB(gainDB) {
+    this.#gainDB = gainDB;
     // Basic dB to linear conversion: gain = 10^(dB/20)
-    const gain = Math.pow(10, volumeDB / 20);
-    this.#volumeNode.gain.setValueAtTime(gain, this.#audioContext.currentTime);
+    const gain = Math.pow(10, gainDB / 20);
+    this.#gainNode.gain.setValueAtTime(gain, this.#audioContext.currentTime);
+  }
+
+  /** @param {number} levelDB */
+  setLevelDB(levelDB) {
+    this.#levelDB = levelDB;
+    // Basic dB to linear conversion: gain = 10^(dB/20)
+    const gain = Math.pow(10, levelDB / 20);
+    this.#levelNode.gain.setValueAtTime(gain, this.#audioContext.currentTime);
+  }
+
+  /**
+   * Creates a curve for the WaveShaperNode to implement soft clipping.
+   * This is a common tanh-based distortion formula.
+   * @returns {Float32Array}
+   */
+  #createSoftClipCurve() {
+    const curve = new Float32Array(255);
+    for (let i = 0; i < 256; i++) {
+      const j = i - 127;  // Range is -127 to 127
+      const x = i * 2 / 255 - 1;
+      curve[i] = Math.tanh(x);
+    }
+    return curve;
   }
 
   setMuteLevel(level) {
@@ -167,8 +202,11 @@ export class MixerEngine extends ToolHandler {
       }
       const channel = this.#channels[channelIndex];
 
-      if (args.volumeDB !== undefined) {
-        channel.setVolumeDB(args.volumeDB);
+      if (args.gainDB !== undefined) {
+        channel.setGainDB(args.gainDB);
+      }
+      if (args.levelDB !== undefined) {
+        channel.setLevelDB(args.levelDB);
       }
       if (args.inputIsMono !== undefined) {
         channel.setInputIsMono(args.inputIsMono);

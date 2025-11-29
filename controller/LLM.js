@@ -112,10 +112,12 @@ ${schemaDescription}
     if (!this.#session) {
       throw new Error("Session is not initialized.");
     }
+    console.log(`Sending message to LLM: ${text}`);
     const response = await this.#session.prompt(text, {
       outputLanguage: ['en'],
       responseConstraint: toolSchema
     });
+    console.log(`LLM Done. ${response.length} bytes`);
     return response;
   }
 

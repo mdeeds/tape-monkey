@@ -63,10 +63,10 @@ export class ToolSchemas {
           required: ["track_number"]
         },
         start_metronome: {
-          description: "Start the metronome.",
+          description: "Start the metronome. Volume is in decibels.  -6 is normal.",
           type: "object",
           properties: {
-            volumeDB: { type: "number", minimum: -Infinity, maximum: 0 }
+            volumeDB: { type: "number" }
           }
         },
         stop_metronome: {
@@ -105,12 +105,13 @@ export class ToolSchemas {
         update_mixer_channel: {
           description: "Update the settings for a mixer channel. The preamp " +
             "has soft clipping, so increase the gain with a corresponding " +
-            "decrease in level to achieve saturation.",
+            "decrease in level to achieve saturation. Gain and level are " +
+            "measured in decibels.",
           type: "object",
           properties: {
             channel: { type: "number", minimum: 1, maximum: 16 },
-            gainDB: { type: "number", minimum: -Infinity, maximum: 100 },
-            levelDB: { type: "number", minimum: -Infinity, maximum: 100 },
+            gainDB: { type: "number" },
+            levelDB: { type: "number" },
             inputIsMono: { type: "boolean" },
             pan: { type: "number", minimum: -1, maximum: 1 },
             mute: { type: "boolean" },

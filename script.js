@@ -8,6 +8,7 @@ import { SongState } from "./model/SongState.js";
 import { SongUI } from "./view/SongUI.js";
 import { TapeDeckEngine } from "./model/TapeDeckEngine.js";
 import { MetronomeEngine } from "./model/MetronomeEngine.js";
+import { MixerEngine } from "./model/MixerEngine.js";
 
 async function main() {
   // The main logic will go here
@@ -36,8 +37,10 @@ async function main() {
   }
   const songUI = new SongUI(mainContainer, songState);
 
+  const mixerEngine = new MixerEngine(audioContext);
   const metronomeEngine = await MetronomeEngine.create(audioContext, songState);
   const tapeDeckEngine = await TapeDeckEngine.create(audioContext, audioStream, songState);
+  const tapeDeckEngine = await TapeDeckEngine.create(audioContext, audioStream, songState, mixerEngine);
 
   const schema = new ToolSchemas();
   console.log(schema.getSchemaSummary());
@@ -51,6 +54,7 @@ async function main() {
     chatUI = newChatUI;
 
     const toolHandlers = [metronomeEngine, tapeDeckEngine, songState, chatUI];
+    const toolHandlers = [mixerEngine, metronomeEngine, tapeDeckEngine, songState, chatUI];
     const mainController = new MainController(llm, chatUI, schema, songState, toolHandlers);
 
     // Listen for messages from the chat popup
@@ -59,7 +63,12 @@ async function main() {
       if (event.origin !== window.location.origin) {
         return;
       }
-      await mainController.handleUserMessage(event.data);
+      try {
+        await mainController.handleUserMessage(event.data);
+      }
+      catch (error) {
+        console.log("Error from LLM:", error);
+      }
     });
 
     // Close the chat popup when the main window is closed or refreshed.

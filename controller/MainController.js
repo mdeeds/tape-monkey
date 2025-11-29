@@ -65,7 +65,7 @@ export class MainController {
         return;
       }
     }
-    console.error(`Unknown tool call: ${toolName}`);
+    console.error(`Unknown tool call: ${toolName}`, args);
   }
 
   canHandle(toolName) {
