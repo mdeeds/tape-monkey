@@ -50,7 +50,14 @@ class Saturator {
     const curveSize = 2 * positiveSamples + 1;
     const curveData = new Float32Array(curveSize);
     const k = slopeAtZero;
-    const maxTanh = Math.tanh(k * 1.0);
+    // Note: for practical purposes where k > 3.0, 
+    // tanh(k) is 1.0, so we can assume that k = slopeAtZero
+    // and maxTanh = 1.0;
+    // Correctly solving for k requires finding k such that
+    // slopeAtZero = k / tanh(k)
+    // This is best done by an iterative approximation and not
+    // worth the complexity it introduces in the code.
+    const maxTanh = 1.0;
 
     for (let i = 0; i < curveSize; i++) {
       // Map the array index `i` to an input value `x` in the range [-1, 1]
