@@ -103,14 +103,17 @@ These methods are exposed to the LLM via tool definitions in the API payload. No
 | **LLM Interface** | no\_action | None | **(FUTURE TOOL)** Instructs the Controller that the received STT input does not contain a directed command and should be accumulated with subsequent speech for the next LLM call. |
 | TapeDeckEngine | play | sections: string[], [loop: boolean] | Begins playback of specified sections. |
 | TapeDeckEngine | record | sections: string[] | Records over the specified sections on the armed track. |
+| TapeDeckEngine | stop\_playback | None | Stops playback or recording. |
 | TapeDeckEngine | arm | track_number: number | Arms a specific track for recording. |
 | MetronomeEngine | start\_metronome | [volume: number] | Starts the metronome click. |
 | MetronomeEngine | stop\_metronome | None | Stops the metronome click. |
-| MixerEngine | set\_volume | stem\_name: string, level\_db: number | Sets the volume of a specific stem to a decibel level (for monitoring mix only). |
-|  | toggle\_mute | stem\_name: string | Mutes or unmutes a specific stem (for monitoring mix only). |
+| MixerEngine | set\_channel\_volume | channel: number, level\_db: number | Sets the volume of a specific mixer channel (for monitoring mix only). |
+| MixerEngine | set\_channel\_pan | channel: number, pan: number | Sets the pan for a mixer channel. -1 is hard left, 1 is hard right. |
+| MixerEngine | toggle\_channel\_mute | channel: number | Mutes or unmutes a specific mixer channel. |
+| MixerEngine | set\_channel\_saturation | channel: number, amount: number | Sets the saturation amount (0-100) for a mixer channel. |
 | SongState | update\_song\_attributes | [bpm: number], [beats\_per\_bar: number] | Updates the song's tempo or time signature. |
-| MainController | create\_section | name: string, bar_count: number, [body: string] | Adds a new song section. |
-| MainController | update\_section | name: string, [bar_count: number], [body: string] | Updates an existing song section. |
+| SongState | create\_section | name: string, bar_count: number, [body: string] | Adds a new song section to the internal data model. |
+| SongState | update\_section | name: string, [bar_count: number], [body: string] | Updates an existing song section in the internal data model. |
 
 ### **7.2. Persistence and Export Strategy**
 
