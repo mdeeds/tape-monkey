@@ -102,6 +102,10 @@ export class ToolSchemas {
           },
           required: ["name"]
         },
+        // This seems to be too complicated for the agent.
+        // We need to do two things, I think
+        // 1: Break up the various adjustments into different functions
+        // 2: Have a single "knob" for saturation.
         update_mixer_channel: {
           description: "Update the settings for a mixer channel. The preamp " +
             "has soft clipping, so increase the gain with a corresponding " +

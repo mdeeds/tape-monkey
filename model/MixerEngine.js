@@ -261,9 +261,6 @@ export class MixerEngine extends ToolHandler {
       if (args.levelDB !== undefined) {
         channel.setLevelDB(args.levelDB);
       }
-      if (args.inputIsMono !== undefined) {
-        channel.setInputIsMono(args.inputIsMono);
-      }
       if (args.pan !== undefined) {
         channel.setPan(args.pan);
       }
