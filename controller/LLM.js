@@ -72,31 +72,46 @@ ${schemaDescription}
     try {
       if (typeof LanguageModel === 'undefined') {
         console.error("The LanguageModel API is not available.");
+        const errorDiv = document.createElement('div');
+        errorDiv.innerHTML = `
+Set these two flags in Chrome and relaunch:
+<ul>
+<li>chrome://flags/#optimization-guide-on-device-model</li>
+<li>chrome://flags/#prompt-api-for-gemini-nano-multimodal-input</li>
+</ul>
+See https://developer.chrome.com/docs/ai/prompt-api#use_on_localhost`;
+        document.body.appendChild(errorDiv);
         return;
       }
 
       const availability =
         await LanguageModel.availability({ outputLanguage: ['en'] });
-      if (availability === 'unavailable') {
-        console.error("The built-in AI model is unavailable.");
-        return;
-      }
 
-      this.#session = await LanguageModel.create({
-        initialPrompts: [
+      switch (availability) {
+        case 'available':
+          await this.#createModelSession();
+          break;
+        case 'downloading':
+        case 'downloadable':
           {
-            role: 'system',
-            content: this.#getSystemInstructions(this.#schemaDescription)
+            const downloadButton = document.createElement('button');
+            downloadButton.textContent = 'Download AI Model';
+            downloadButton.style.position = 'fixed';
+            downloadButton.style.top = '10px';
+            downloadButton.style.left = '50%';
+            downloadButton.style.transform = 'translateX(-50%)';
+            downloadButton.style.zIndex = '1000';
+            document.body.appendChild(downloadButton);
+            downloadButton.addEventListener('click', async () => {
+              downloadButton.remove();
+              await this.#createModelSession();
+            }, { once: true });
           }
-        ],
-        outputLanguage: ['en'],
-        monitor: (m) => {
-          m.addEventListener('downloadprogress', (e) => {
-            console.log(
-              `Model download progress: ${Math.round(e.loaded * 100)}%`);
-          });
-        },
-      });
+          break;
+        case 'unavailable':
+          console.error("The built-in AI model is unavailable.");
+          break;
+      }
     } catch (error) {
       console.error("Error initializing AI session:", error);
     }
@@ -123,5 +138,30 @@ ${schemaDescription}
 
   querySyntaxCorrection(malformedText) {
     // Implementation for syntax correction will go here.
+  }
+
+  async #createModelSession() {
+    const progressDiv = document.createElement('div');
+    document.body.appendChild(progressDiv);
+
+    this.#session = await LanguageModel.create({
+      initialPrompts: [
+        {
+          role: 'system',
+          content: this.#getSystemInstructions(this.#schemaDescription)
+        }
+      ],
+      outputLanguage: ['en'],
+      monitor: (m) => {
+        m.addEventListener('downloadprogress', (e) => {
+          const message = `Model download progress: ${(e.loaded * 100).toFixed(2)}%`;
+          progressDiv.innerHTML = message;
+          if (e.loaded === 1.0) {
+            progressDiv.remove();
+          }
+          console.log(message);
+        });
+      },
+    });
   }
 }
