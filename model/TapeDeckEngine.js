@@ -4,6 +4,7 @@ import { Track } from './Track.js';
 import { ToolHandler } from '../controller/ToolHandler.js';
 import { SongState } from './SongState.js';
 import { MixerEngine } from './MixerEngine.js';
+import { MetronomeEngine } from './MetronomeEngine.js';
 
 /**
  * Manages audio recording from an input stream into multiple tracks using an Audio Worklet.
@@ -28,6 +29,8 @@ export class TapeDeckEngine extends ToolHandler {
   #songState;
   /** @type {MixerEngine} */
   #mixerEngine;
+  /** @type {MetronomeEngine} */
+  #metronomeEngine;
 
   /**
    * The path to the audio worklet processor.
@@ -41,10 +44,11 @@ export class TapeDeckEngine extends ToolHandler {
    * @param {MediaStream} audioStream The user's audio input stream.
    * @param {SongState} songState The application's song state.
    * @param {MixerEngine} mixerEngine The mixer engine.
+   * @param {MetronomeEngine} metronomeEngine The metronome engine.
    * @returns {Promise<TapeDeckEngine>}
    */
-  static async create(audioContext, audioStream, songState, mixerEngine) {
-    const engine = new TapeDeckEngine(audioContext, audioStream, songState, mixerEngine);
+  static async create(audioContext, audioStream, songState, mixerEngine, metronomeEngine) {
+    const engine = new TapeDeckEngine(audioContext, audioStream, songState, mixerEngine, metronomeEngine);
     await engine.#initialize();
     return engine;
   }
@@ -55,13 +59,18 @@ export class TapeDeckEngine extends ToolHandler {
    * @param {MediaStream} audioStream The user's audio input stream.
    * @param {SongState} songState The application's song state.
    * @param {MixerEngine} mixerEngine The mixer engine.
+   * @param {MetronomeEngine} metronomeEngine The metronome engine.
    */
-  constructor(audioContext, audioStream, songState, mixerEngine) {
+  constructor(audioContext, audioStream, songState, mixerEngine, metronomeEngine) {
+    if (!metronomeEngine) {
+      throw new Error('Metronome engine is required.');
+    }
     super();
     this.#audioContext = audioContext;
     this.#audioStream = audioStream;
     this.#songState = songState;
     this.#mixerEngine = mixerEngine;
+    this.#metronomeEngine = metronomeEngine;
     // Note: The constructor is private. Use the static `create` method instead.
 
     // Initialize 16 stereo tracks
@@ -143,6 +152,7 @@ export class TapeDeckEngine extends ToolHandler {
    */
   stop() {
     this.#isRecording = false;
+    this.#metronomeEngine.stop();
     this.#recordingStartFrame = null;
   }
 
@@ -234,6 +244,7 @@ export class TapeDeckEngine extends ToolHandler {
    * @returns 
    */
   #play(sections, loop = false) {
+    this.#metronomeEngine.start();
     const timeInterval = this.#getSectionsTimeInterval(sections)
     || { startTime: 0, endTime: null };
     const { startTime, endTime } = timeInterval;

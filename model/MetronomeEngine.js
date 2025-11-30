@@ -89,7 +89,7 @@ export class MetronomeEngine extends ToolHandler {
    * @override
    */
   canHandle(toolName) {
-    return ['start_metronome', 'stop_metronome'].includes(toolName);
+    return ['set_metronome_properties'].includes(toolName);
   }
 
   /**
@@ -99,23 +99,35 @@ export class MetronomeEngine extends ToolHandler {
    */
   async callTool(toolName, args) {
     switch (toolName) {
-      case 'start_metronome':
-        this.#start();
-        break;
-      case 'stop_metronome':
-        this.#stop();
+      case 'set_metronome_properties':
+        this.#setVolume(args.volumeDB);
         break;
     }
   }
 
-  #start() {
-    if (!this.#gainNode || !this.#workletNode) return;
-    console.log('Starting metronome...');
-    this.#gainNode.gain.setValueAtTime(0.5, this.#audioContext.currentTime);
-    this.#workletNode.port.postMessage({ type: 'update', value: { startFrame: this.#audioContext.currentTime * this.#audioContext.sampleRate } });
+  /**
+   * @param {number | undefined} volumeDB
+   */
+  #setVolume(volumeDB) {
+    if (!this.#gainNode) throw new Error('Gain node is not initialized.');
+    if (volumeDB === undefined) return;
+    const gain = Math.pow(10, volumeDB / 20);
+    this.#gainNode.gain.setValueAtTime(gain, this.#audioContext.currentTime);
   }
 
-  #stop() {
+  start() {
+    if (!this.#gainNode || !this.#workletNode) throw new Error('Gain node or worklet node is not initialized.');
+    console.log('Starting metronome...');
+    // If gain is 0, set it to a default value.
+    if (this.#gainNode.gain.value === 0) {
+      this.#gainNode.gain.setValueAtTime(0.5, this.#audioContext.currentTime); // Default volume
+    }
+    this.#workletNode.port.postMessage({ 
+      type: 'update', 
+      value: { startFrame: this.#audioContext.currentTime * this.#audioContext.sampleRate } });
+  }
+
+  stop() {
     if (!this.#gainNode) return;
     console.log('Stopping metronome.');
     this.#gainNode.gain.setValueAtTime(0, this.#audioContext.currentTime);

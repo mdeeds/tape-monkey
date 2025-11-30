@@ -40,7 +40,7 @@ async function main() {
   const mixerEngine = new MixerEngine(audioContext);
   const metronomeEngine = await MetronomeEngine.create(audioContext, songState);
   const tapeDeckEngine = await TapeDeckEngine.create(
-    audioContext, audioStream, songState, mixerEngine);
+    audioContext, audioStream, songState, mixerEngine, metronomeEngine);
 
   const schema = new ToolSchemas();
   console.log(schema.getSchemaSummary());
@@ -53,7 +53,7 @@ async function main() {
     ]);
     chatUI = newChatUI;
 
-    const toolHandlers = [metronomeEngine, tapeDeckEngine, songState, chatUI, mixerEngine];
+    const toolHandlers = [tapeDeckEngine, songState, chatUI, mixerEngine, metronomeEngine];
     const mainController = new MainController(llm, chatUI, schema, songState, toolHandlers);
 
     // Listen for messages from the chat popup

@@ -62,17 +62,12 @@ export class ToolSchemas {
           },
           required: ["track_number"]
         },
-        start_metronome: {
-          description: "Start the metronome. Volume is in decibels.  -6 is normal.",
+        set_metronome_properties: {
+          description: "Set the metronome volume. Volume is in decibels. -6 is normal.",
           type: "object",
           properties: {
             volumeDB: { type: "number" }
           }
-        },
-        stop_metronome: {
-          description: "Stop the metronome.",
-          type: "object",
-          properties: {}
         },
         update_song_attributes: {
           description: "Update the song's attributes, like BPM or time signature.",
