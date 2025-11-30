@@ -26,6 +26,7 @@ The application's logic is segregated into specialized files, organized into log
 | **/controller** | MainController.js | Application Controller | Handles user input, delegates tool calls, and coordinates updates. |
 |  | ToolHandler.js | Interface | Defines a standard contract for any component that can execute tool calls. |
 |  | LLM.js | LLM Abstraction Service | Encapsulates all interactions with the Gemini API (conversational and correction calls). |
+|  | ToolSchemas.js | Schema Service | Defines and generates the JSON schemas for all available tools. |
 | **Root** | script.js | Entry Point | Application initialization, module imports, and initial setup. |
 
 ## **4\. Core Data Flow: Controller-Mediated Asymmetry**
@@ -36,7 +37,7 @@ The system operates on a loop where the Gemini LLM is the central decision-maker
 2. **Controller Intercept & Context Injection:** MainController.js captures the text and queries SongState.js for the **current Canonical Song Text**. It then calls the LLM.js service's conversational query method, **injecting the song text into the LLM's system context/prompt.**  
 3. **LLM API Call:** LLM.js constructs the API payload, including the user's text, the current song structure context, and the schemas for available **Tool Functions** from the Engine Models.  
 4. **LLM Decision:** The LLM decides whether to execute a specific Tool Function (e.g., set\_volume) or return a conversational message via the **message tool**. The output is always a structured JSON object representing the chosen tool call.  
-5. **Tool Execution:** MainController.js receives the structured JSON and iterates through a list of registered **Tool Handlers** (e.g., `MetronomeEngine`, `TapeDeckEngine`, `SongState`, and `MainController` itself). It calls the first handler that reports it can execute the tool. If it's the `message` tool, the Controller displays the content to the user.  
+5. **Tool Execution:** MainController.js receives the structured JSON and iterates through a list of registered **Tool Handlers** (e.g., `MetronomeEngine`, `TapeDeckEngine`, `SongState`, and `ChatInterfaceUI`). It calls the first handler that reports it can execute the tool. If it's the `message` tool, the Controller displays the content to the user.  
 6. **State Update & Feedback:** A tool handler (like `SongState` or `TapeDeckEngine`) updates its internal state. If `SongState` is modified, it broadcasts a `song-state-changed` event. Other components like `SongUI` and `MetronomeEngine` listen for this event to automatically update themselves.
 
 ## **5\. The Structural Coherence Solution**
@@ -86,7 +87,7 @@ The LLM.js file is a pure service layer, managing all communication with the Gem
 
 To ensure the LLM outputs executable commands in a scalable and decoupled way, the system uses a `ToolHandler` interface.
 
-* **Tool Schema Definition:** The MainController.js defines and provides LLM.js with a JSON schema for every available Engine Model function, including the conversational tools.  
+* **Tool Schema Definition:** The `ToolSchemas.js` component is responsible for defining the JSON schema for every available tool. In `script.js`, an instance of `ToolSchemas` is created, and its schema summary is passed to the `LLM` service upon initialization.  
 * **JSON Output Constraint:** For the in-browser LLM, the API is constrained to return a structured JSON object representing the intended function call.  
 * **ToolHandler Interface:** A component that can execute tools (like `TapeDeckEngine` or `MainController`) implements the `ToolHandler` interface, which consists of two methods: `canHandle(toolName)` and `callTool(toolName, args)`.
 * **Delegation in MainController.js:** The `MainController` maintains a list of `ToolHandler` instances. When it receives a JSON object from the LLM, it iterates through its handlers, asking each one if it `canHandle` the tool. The first handler to return `true` is then asked to `callTool`, effectively delegating the execution. This decouples the `MainController` from knowing the implementation details of every tool.
