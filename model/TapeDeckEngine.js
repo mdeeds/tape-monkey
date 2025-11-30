@@ -66,7 +66,7 @@ export class TapeDeckEngine extends ToolHandler {
 
     // Initialize 16 stereo tracks
     for (let i = 0; i < 16; i++) {
-      this.#tracks.push(new Track(this.#audioContext.sampleRate));
+      this.#tracks.push(new Track(this.#audioContext, this.#audioContext.sampleRate));
     }
   }
 
@@ -234,21 +234,17 @@ export class TapeDeckEngine extends ToolHandler {
    * @returns 
    */
   #play(sections, loop = false) {
-    const timeInterval = this.#getSectionsTimeInterval(sections);
-    if (!timeInterval) {
-      console.log('No sections to play.');
-      return;
-    }
+    const timeInterval = this.#getSectionsTimeInterval(sections)
+    || { startTime: 0, endTime: null };
+    const { startTime, endTime } = timeInterval;
 
-    console.log(`Playing sections: ${sections.join(', ')} from ${timeInterval.startTime}s to ${timeInterval.endTime}s`);
+    console.log(`Playing sections: ${sections.join(', ')} from ${startTime}s to ${endTime}s`);
 
     for (let i = 0; i < this.#tracks.length; i++) {
       const track = this.#tracks[i];
-      const source = track.createSourceNode(this.#audioContext, timeInterval.startTime, timeInterval.endTime, loop);
-      if (source) {
-        source.connect(this.#mixerEngine.getChannelInput(i));
-        source.start(this.#audioContext.currentTime, timeInterval.startTime);
-      }
+      const source = track.createSourceNode(this.#audioContext, loop);
+      source.connect(this.#mixerEngine.getChannelInput(i));
+      source.start(this.#audioContext.currentTime, startTime);
     }
   }
 

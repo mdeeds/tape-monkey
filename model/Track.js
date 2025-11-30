@@ -6,8 +6,8 @@ const FIVE_MINUTES_IN_SECONDS = 5 * 60;
  * Represents a single audio track with pre-allocated buffers and analysis capabilities.
  */
 export class Track {
-  /** @type {Float32Array[]} */
-  #buffers;
+  /** @type {AudioBuffer} */
+  #audioBuffer;
   /** @type {number} */
   #sampleRate;
   /** @type {number} */
@@ -22,17 +22,16 @@ export class Track {
   crossChannelCorrelation = 0;
 
   /**
+   * @param {AudioContext} audioContext The audio context.
    * @param {number} sampleRate The sample rate of the audio context.
    */
-  constructor(sampleRate) {
+  constructor(audioContext, sampleRate) {
     this.#sampleRate = sampleRate;
     this.#bufferLength = sampleRate * FIVE_MINUTES_IN_SECONDS;
 
     // Pre-allocate buffers for 5 minutes of stereo audio
-    this.#buffers = [
-      new Float32Array(this.#bufferLength),
-      new Float32Array(this.#bufferLength),
-    ];
+    this.#audioBuffer =
+      audioContext.createBuffer(2, this.#bufferLength, this.#sampleRate);
   }
 
   /**
@@ -53,11 +52,13 @@ export class Track {
       const framesToWrite = this.#bufferLength - startFrame;
       if (framesToWrite <= 0) return;
 
-      this.#buffers[0].set(leftData.subarray(0, framesToWrite), startFrame);
-      this.#buffers[1].set(rightData.subarray(0, framesToWrite), startFrame);
+      // Create a new Float32Array to satisfy the strict type checking for copyToChannel.
+      this.#audioBuffer.copyToChannel(new Float32Array(leftData.subarray(0, framesToWrite)), 0, startFrame);
+      this.#audioBuffer.copyToChannel(new Float32Array(rightData.subarray(0, framesToWrite)), 1, startFrame);
     } else {
-      this.#buffers[0].set(leftData, startFrame);
-      this.#buffers[1].set(rightData, startFrame);
+      // Create a new Float32Array to satisfy the strict type checking for copyToChannel.
+      this.#audioBuffer.copyToChannel(new Float32Array(leftData), 0, startFrame);
+      this.#audioBuffer.copyToChannel(new Float32Array(rightData), 1, startFrame);
     }
 
     this.#analyze(leftData, rightData);
@@ -104,37 +105,22 @@ export class Track {
   }
 
   /**
-   * @returns {Float32Array[]} The stereo audio buffers.
-   */
-  get buffers() {
-    return this.#buffers;
-  }
-
-  /**
-   * Creates an AudioBufferSourceNode for a specific time range of the track.
+   * Creates an AudioBufferSourceNode that is ready to play the track's content.
+   * The caller is responsible for calling `start(when, offset, duration)`.
    * @param {AudioContext} audioContext The audio context to create the node in.
-   * @param {number} startTime The start time in seconds within the track.
-   * @param {number} endTime The end time in seconds within the track.
    * @param {boolean} loop Whether the created source node should loop.
-   * @returns {AudioBufferSourceNode | null} An AudioBufferSourceNode or null if the track is empty in that range.
+   * @returns {AudioBufferSourceNode} An AudioBufferSourceNode.
    */
-  createSourceNode(audioContext, startTime, endTime, loop) {
-    const startFrame = Math.floor(startTime * this.#sampleRate);
-    const endFrame = Math.ceil(endTime * this.#sampleRate);
-    const durationFrames = endFrame - startFrame;
-
-    if (durationFrames <= 0) {
-      return null;
-    }
-
-    const audioBuffer = audioContext.createBuffer(2, durationFrames, this.#sampleRate);
-    audioBuffer.copyToChannel(this.#buffers[0].subarray(startFrame, endFrame), 0);
-    audioBuffer.copyToChannel(this.#buffers[1].subarray(startFrame, endFrame), 1);
-
+  createSourceNode(audioContext, loop) {
     const source = audioContext.createBufferSource();
-    source.buffer = audioBuffer;
+    source.buffer = this.#audioBuffer;
     source.loop = loop;
 
+    if (loop) {
+      // If looping, we need to specify the loop start and end points in seconds.
+      source.loopStart = 0;
+      source.loopEnd = this.#bufferLength / this.#sampleRate;
+    }
     return source;
   }
 }
