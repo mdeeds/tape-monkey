@@ -92,7 +92,7 @@ class MetronomeProcessor extends AudioWorkletProcessor {
       // Generate audio only if we are within the beep's duration.
       if (framesSinceLastBeat >= 0 && framesSinceLastBeat < this.#beepDurationFrames) {
         // Use a higher frequency for the downbeat (beat 0).
-        const frequency = (this.#beatCount === 1 || (this.#beatCount === 0 && this.#beatsPerMeasure > 0)) ? 800 : 400;
+        const frequency = (this.#beatCount === 0 && this.#beatsPerMeasure > 0) ? 800 : 400;
         const phase = (framesSinceLastBeat / sampleRate) * frequency * 2 * Math.PI;
         sample = Math.sin(phase);
       }
