@@ -74,6 +74,7 @@ export class MetronomeEngine extends ToolHandler {
    * @private
    */
   #handleSongStateChange() {
+    console.log('Handling song state change.')
     if (!this.#workletNode) return;
 
     const bpm = this.#songState.bpm ?? 120;

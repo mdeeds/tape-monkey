@@ -19,6 +19,9 @@ export class SongUI {
    * @param {SongState} songState The application's song state.
    */
   constructor(container, songState) {
+    if (!songState) {
+      throw new Error('SongState is required.');
+    }
     this.#container = container;
     this.#songState = songState;
 
@@ -112,8 +115,10 @@ export class SongUI {
    * @private
    */
   #handleStateChange() {
+    console.log('Handling state change.')
     const currentText = this.#textArea.value;
     const serializedState = this.#songState.serialize();
+    console.log('Serialized state:', serializedState);
 
     // Preserve cursor position
     const selectionStart = this.#textArea.selectionStart;

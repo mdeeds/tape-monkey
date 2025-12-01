@@ -1,8 +1,8 @@
 // @ts-check
 
 import { ToolHandler } from '../controller/ToolHandler.js';
-
 /**
+ * @typedef {import('../controller/ToolSchemas.js').ToolSchemas} ToolSchemas
  * @typedef {object} SongSection
  * @property {string} name
  * @property {number} bar_count
@@ -139,9 +139,9 @@ export class SongState extends EventTarget {
    * @returns {string}
    */
   serialize() {
-    if (this.#title === null || this.#bpm === null || this.#beatsPerBar === null) {
-      return '';
-    }
+    this.#title ||= 'No Title';
+    this.#bpm ||= 120;
+    this.#beatsPerBar ||= 4;
 
     let text = `# ${this.#title} (${this.#bpm} BPM, ${this.#beatsPerBar}/4)\n\n`;
 
@@ -199,7 +199,7 @@ export class SongState extends EventTarget {
    * @override
    */
   canHandle(toolName) {
-    return ['update_song_attributes'].includes(toolName);
+    return ['update_song_attributes', 'create_section', 'update_section'].includes(toolName);
   }
 
   /**
@@ -219,6 +219,31 @@ export class SongState extends EventTarget {
         changed = true;
       }
       if (changed) this.dispatchEvent(new CustomEvent('song-state-changed'));
+    } else if (toolName === 'create_section') {
+      this.#createSection(args.name, args.bar_count, args.body);
+    } else if (toolName === 'update_section') {
+      this.#updateSection(args.name, args.bar_count, args.body);
     }
+  }
+
+  #createSection(name, bar_count, body = '') {
+    const newSection = {
+      name,
+      bar_count,
+      body,
+    };
+    this.#sections.push(newSection);
+    this.dispatchEvent(new CustomEvent('song-state-changed'));
+  }
+
+  #updateSection(name, bar_count, body) {
+    const section = this.#sections.find(s => s.name === name);
+    if (!section) {
+      console.error(`Section "${name}" not found for update.`);
+      return;
+    }
+    if (bar_count !== undefined) section.bar_count = bar_count;
+    if (body !== undefined) section.body = body;
+    this.dispatchEvent(new CustomEvent('song-state-changed'));
   }
 }

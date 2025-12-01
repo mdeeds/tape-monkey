@@ -30,6 +30,7 @@ async function main() {
     throw new Error("Error obtaining audio stream");
   }
 
+  const schema = new ToolSchemas();
   const songState = new SongState();
   const mainContainer = document.getElementById('main-container');
   if (!mainContainer) {
@@ -42,18 +43,19 @@ async function main() {
   const tapeDeckEngine = await TapeDeckEngine.create(
     audioContext, audioStream, songState, mixerEngine, metronomeEngine);
 
-  const schema = new ToolSchemas();
-  console.log(schema.getSchemaSummary());
+  const sectionNames = songState.sections.map(s => s.name);
+  console.log(schema.getSchemaSummary(sectionNames));
 
   let chatUI;
   try {
-    const [llm, newChatUI] = await Promise.all([
-      LLM.create(schema.getSchemaSummary()),
+    const [llm, newChatUI] = await Promise.all([ // TODO: This schema summary is stale
+      LLM.create(schema.getSchemaSummary(sectionNames)),
       ChatInterfaceUI.create('Tape Monkey Chat'),
     ]);
     chatUI = newChatUI;
 
-    const toolHandlers = [tapeDeckEngine, songState, chatUI, mixerEngine, metronomeEngine];
+    const toolHandlers = [
+      tapeDeckEngine, songState, chatUI, mixerEngine, metronomeEngine];
     const mainController = new MainController(llm, chatUI, schema, songState, toolHandlers);
 
     // Listen for messages from the chat popup

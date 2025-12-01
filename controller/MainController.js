@@ -40,11 +40,14 @@ export class MainController {
    * @param {string} userMessage
    */
   async handleUserMessage(userMessage) {
+    const sectionNames = this.#songState.sections.map(s => s.name);
     const response =
       JSON.parse(
-        await this.#llm.queryConversational(`${userMessage}\n\n${this.#songState.serialize()}`,
-          this.#toolSchemas.getSchema())
+        await this.#llm.queryConversational(
+          `${userMessage}`,
+          this.#toolSchemas.getSchema(sectionNames))
       );
+    console.log('LLM: ', response);
     for (const toolName in response) {
       if (Object.hasOwnProperty.call(response, toolName)) {
         const toolParams = response[toolName];
@@ -66,9 +69,5 @@ export class MainController {
       }
     }
     console.error(`Unknown tool call: ${toolName}`, args);
-  }
-
-  canHandle(toolName) {
-    return ['message', 'create_section', 'update_section'].includes(toolName);
   }
 }

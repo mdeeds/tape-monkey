@@ -3,20 +3,10 @@
 
 
 export class ToolSchemas {
-  constructor() {
-    this._songSectionNames = new Set();
-  }
-
   /**
-   * 
-   * @param {string} name 
+   * @param {string[]} sectionNames
    */
-  addSongSectionName(name) {
-    this._songSectionNames.add(name);
-  }
-
-  getSchema() {
-    const sectionNames = Array.from(this._songSectionNames);
+  getSchema(sectionNames) {
     return {
       type: "object",
       properties: {
@@ -130,15 +120,16 @@ export class ToolSchemas {
    * Optional parameters are in square brackets and colons and example values are omitted for brevity.
    */
   getSchemaSummary() {
-    const schema = this.getSchema();
+    const schema = this.getSchema([]);
     const tools = schema.properties;
     const summaryLines = [];
 
     for (const toolName of Object.getOwnPropertyNames(tools)) {
       const tool = tools[toolName];
       if (tool.properties) {
+        let toolLine = "";
         if (tool.description) {
-          summaryLines.push(tool.description);
+          toolLine += tool.description + ": ";
         }
         const requiredParams = new Set(tool.required || []);
         const paramNames = Object.keys(tool.properties);
@@ -146,7 +137,8 @@ export class ToolSchemas {
         const paramsSummary = paramNames.map(param =>
           requiredParams.has(param) ? param : `[${param}]`
         ).join(', ');
-        summaryLines.push(`${toolName}{${paramsSummary}}`);
+        toolLine += `${toolName}{${paramsSummary}}`;
+        summaryLines.push(toolLine);
       }
     }
     return summaryLines.join('\n');
