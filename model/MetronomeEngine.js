@@ -116,7 +116,11 @@ export class MetronomeEngine extends ToolHandler {
     this.#gainNode.gain.setValueAtTime(gain, this.#audioContext.currentTime);
   }
 
-  start() {
+  /**
+   * 
+   * @param {number} startFrame 
+   */
+  start(startFrame) {
     if (!this.#gainNode || !this.#workletNode) throw new Error('Gain node or worklet node is not initialized.');
     console.log('Starting metronome...');
     // If gain is 0, set it to a default value.
@@ -125,7 +129,7 @@ export class MetronomeEngine extends ToolHandler {
     }
     this.#workletNode.port.postMessage({ 
       type: 'update', 
-      value: { startFrame: this.#audioContext.currentTime * this.#audioContext.sampleRate } });
+      value: { startFrame } });
   }
 
   stop() {

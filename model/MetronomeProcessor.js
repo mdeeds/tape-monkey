@@ -28,7 +28,7 @@ class MetronomeProcessor extends AudioWorkletProcessor {
    * @private
    */
   #recalculateBeepDuration() {
-    const beepDurationSeconds = 0.05;
+    const beepDurationSeconds = 0.02;
     this.#beepDurationFrames = beepDurationSeconds * sampleRate;
   }
 
@@ -55,6 +55,8 @@ class MetronomeProcessor extends AudioWorkletProcessor {
         this.#startFrame = startFrame;
         this.#nextBeatFrame = startFrame;
         this.#beatCount = 0;
+
+        console.log(`Current frame: ${currentFrame}, start frame: ${startFrame}`);
       }
     }
   }
@@ -83,6 +85,8 @@ class MetronomeProcessor extends AudioWorkletProcessor {
         // Increment beat count, wrapping around the measure.
         this.#beatCount = (this.#beatCount + 1) % this.#beatsPerMeasure;
       }
+      // The beat count is always incremented one past where the beat is.
+      const isDownbeat = (this.#beatCount === 1 && this.#beatsPerMeasure > 0);
 
       // The frame number of the beat that just happened or is about to happen.
       const lastBeatFrame = this.#nextBeatFrame - framesPerBeat;
@@ -92,7 +96,7 @@ class MetronomeProcessor extends AudioWorkletProcessor {
       // Generate audio only if we are within the beep's duration.
       if (framesSinceLastBeat >= 0 && framesSinceLastBeat < this.#beepDurationFrames) {
         // Use a higher frequency for the downbeat (beat 0).
-        const frequency = (this.#beatCount === 0 && this.#beatsPerMeasure > 0) ? 800 : 400;
+        const frequency = isDownbeat ? 800 : 400;
         const phase = (framesSinceLastBeat / sampleRate) * frequency * 2 * Math.PI;
         sample = Math.sin(phase);
       }

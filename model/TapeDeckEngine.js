@@ -240,6 +240,7 @@ export class TapeDeckEngine extends ToolHandler {
    */
   #arm(trackNumber) {
     console.log(`Arming track ${trackNumber}`);
+    this.#activeTrack = trackNumber - 1;
   }
 
   /**
@@ -249,18 +250,22 @@ export class TapeDeckEngine extends ToolHandler {
    * @returns 
    */
   #play(sections, loop = false) {
-    this.#metronomeEngine.start();
-    const timeInterval = this.#getSectionsTimeInterval(sections)
-    || { startTime: 0, endTime: null };
-    const { startTime, endTime } = timeInterval;
+    const startTime = this.#audioContext.currentTime + 0.05; // 50ms delay
+    const startFrame = Math.round(startTime * this.#audioContext.sampleRate);
+    this.#metronomeEngine.start(startFrame);
 
-    console.log(`Playing sections: ${sections.join(', ')} from ${startTime}s to ${endTime}s`);
+    const tapeInterval = this.#getSectionsTimeInterval(sections)
+    || { startTime: 0, endTime: null };
+    const tapeStartTime = tapeInterval.startTime;
+    const tapeEndTime = tapeInterval.endTime;
+
+    console.log(`Playing sections: ${sections.join(', ')} from ${tapeStartTime}s to ${tapeEndTime}s`);
 
     for (let i = 0; i < this.#tracks.length; i++) {
       const track = this.#tracks[i];
       const source = track.createSourceNode(this.#audioContext, loop);
       source.connect(this.#mixerEngine.getChannelInput(i));
-      source.start(this.#audioContext.currentTime, startTime);
+      source.start(startTime, tapeStartTime);
     }
   }
 
