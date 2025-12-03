@@ -89,9 +89,12 @@ function createAudioContext() {
   if (!AudioContext) {
     return null;
   }
-  return new AudioContext({
+  const context = new AudioContext({
     sampleRate: 48000, // Attempt to set preferred sample rate
   });
+  console.log("Audio context created, sample rate: " + 
+    context.sampleRate);
+  return context;
 }
 
 function init() {
@@ -116,18 +119,34 @@ function init() {
  * Gets the default audio input device with settings suitable for music recording.
  * @returns {Promise<MediaStream>}
  */
-function getAudioInputStream() {
+async function getAudioInputStream() {
+  // First, get permission and a temporary stream. This is necessary so that
+  // enumerateDevices() will return the full list of devices with labels.
+  const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  tempStream.getTracks().forEach(track => track.stop());
+
   const constraints = {
     audio: {
       // These settings are ideal for recording music, disabling processing
       // that can interfere with the quality of the recording.
+      deviceId: { exact: 'default' }, // Explicitly request the default device
       echoCancellation: false,
       noiseSuppression: false,
       autoGainControl: false,
       sampleRate: { ideal: 48000 } // Prefer 48kHz sample rate
+
     }
   };
-  return navigator.mediaDevices.getUserMedia(constraints);
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  const audioTrack = stream.getAudioTracks()[0];
+  if (audioTrack) {
+    const settings = audioTrack.getSettings();
+    console.log(`Using audio input: ${audioTrack.label}`);
+    if (settings.sampleRate) {
+      console.log(`Sample rate: ${settings.sampleRate} Hz`);
+    }
+  }
+  return stream;
 }
 
 window.addEventListener('DOMContentLoaded', init);

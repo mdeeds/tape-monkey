@@ -264,6 +264,7 @@ export class TapeDeckEngine extends ToolHandler {
    * @param {string[]} sections 
    */
   #record(sections) {
-    console.log(`Recording sections: ${sections.join(', ')}`);
+    this.#play(sections);
+    this.startRecording();
   }
 }
