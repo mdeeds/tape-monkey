@@ -14,12 +14,24 @@ export class Track {
   #bufferLength;
 
   // Analysis properties
-  /** @type {number} */
-  rms = 0;
-  /** @type {number} */
-  peak = 0;
+  /** @type {number} RMS for left channel in dB. */
+  rmsLeftDb = -Infinity;
+  /** @type {number} Peak for left channel in dB. */
+  peakLeftDb = -Infinity;
+  /** @type {number} RMS for right channel in dB. */
+  rmsRightDb = -Infinity;
+  /** @type {number} Peak for right channel in dB. */
+  peakRightDb = -Infinity;
   /** @type {number} */
   crossChannelCorrelation = 0;
+  /** @type {Worker} */
+  #statsWorker;
+  /** @type {number} */
+  #statsMinFrame = Infinity;
+  /** @type {number} */
+  #statsMaxFrame = -Infinity;
+  /** @type {((value: any) => void) | null} */
+  #statsPromiseResolver = null;
 
   /**
    * @param {AudioContext} audioContext The audio context.
@@ -32,6 +44,11 @@ export class Track {
     // Pre-allocate buffers for 5 minutes of stereo audio
     this.#audioBuffer =
       audioContext.createBuffer(2, this.#bufferLength, this.#sampleRate);
+
+    // Initialize the web worker for track statistics
+    this.#statsWorker = new Worker(new URL('./TrackStats.js', import.meta.url), { type: 'module' });
+    this.#statsWorker.onmessage = this.#handleStatsWorkerMessage.bind(this);
+    this.#statsWorker.onerror = this.#handleStatsWorkerError.bind(this);
   }
 
   /**
@@ -61,47 +78,78 @@ export class Track {
       this.#audioBuffer.copyToChannel(new Float32Array(rightData), 1, startFrame);
     }
 
-    this.#analyze(leftData, rightData);
+    // Mark the written region as dirty for the next stats calculation.
+    this.#statsMinFrame = Math.min(this.#statsMinFrame, startFrame);
+    this.#statsMaxFrame = Math.max(this.#statsMaxFrame, endFrame);
   }
 
   /**
-   * Performs analysis on the incoming chunk of audio data.
-   * @private
-   * @param {Float32Array} leftData
-   * @param {Float32Array} rightData
+   * Calculates and returns the latest track statistics for the modified regions.
+   * @returns {Promise<{rmsLeftDb: number, peakLeftDb: number, rmsRightDb: number, peakRightDb: number, crossChannelCorrelation: number}>}
    */
-  #analyze(leftData, rightData) {
-    let sumOfSquares = 0;
-    let peak = this.peak;
-    let crossCorrelationSum = 0;
-
-    const n = leftData.length;
-    if (n === 0) return;
-
-    for (let i = 0; i < n; i++) {
-      const leftSample = leftData[i];
-      const rightSample = rightData[i];
-
-      sumOfSquares += leftSample * leftSample + rightSample * rightSample;
-
-      const absLeft = Math.abs(leftSample);
-      const absRight = Math.abs(rightSample);
-
-      if (absLeft > peak) peak = absLeft;
-      if (absRight > peak) peak = absRight;
-
-      crossCorrelationSum += leftSample * rightSample;
+  async getStats() {
+    if (this.#statsMinFrame > this.#statsMaxFrame) {
+      // No new data, return current stats
+      return {
+        rmsLeftDb: this.rmsLeftDb,
+        peakLeftDb: this.peakLeftDb,
+        rmsRightDb: this.rmsRightDb,
+        peakRightDb: this.peakRightDb,
+        crossChannelCorrelation: this.crossChannelCorrelation,
+      };
     }
 
-    // Update RMS. This is a running average of the power of the new chunk, not the whole track.
-    // For a simple level meter, this is often sufficient.
-    this.rms = Math.sqrt(sumOfSquares / (2 * n));
+    const statsLength = this.#statsMaxFrame - this.#statsMinFrame;
+    if (statsLength <= 0) {
+      return this; // Should not happen, but good practice
+    }
 
-    // Update peak
-    this.peak = peak;
+    // Extract the dirty region from the audio buffer
+    const leftData = this.#audioBuffer.getChannelData(0).subarray(this.#statsMinFrame, this.#statsMaxFrame);
+    const rightData = this.#audioBuffer.getChannelData(1).subarray(this.#statsMinFrame, this.#statsMaxFrame);
 
-    // Update Cross-Channel Correlation
-    this.crossChannelCorrelation = crossCorrelationSum / n;
+    // Reset dirty region trackers
+    this.#statsMinFrame = Infinity;
+    this.#statsMaxFrame = -Infinity;
+
+    return new Promise((resolve) => {
+      this.#statsPromiseResolver = resolve;
+      // Post data to worker for calculation. We need to copy the data because it's being transferred.
+      const leftDataForWorker = new Float32Array(leftData);
+      const rightDataForWorker = new Float32Array(rightData);
+      this.#statsWorker.postMessage({
+        left: leftDataForWorker,
+        right: rightDataForWorker
+      }, [leftDataForWorker.buffer, rightDataForWorker.buffer]);
+    });
+  }
+
+  /**
+   * Handles messages received from the stats web worker.
+   * @private
+   * @param {MessageEvent<{rmsLeftDb: number, peakLeftDb: number, rmsRightDb: number, peakRightDb: number, crossChannelCorrelation: number}>} event
+   */
+  #handleStatsWorkerMessage(event) {
+    const { rmsLeftDb, peakLeftDb, rmsRightDb, peakRightDb, crossChannelCorrelation } = event.data;
+    this.rmsLeftDb = rmsLeftDb;
+    this.peakLeftDb = peakLeftDb;
+    this.rmsRightDb = rmsRightDb;
+    this.peakRightDb = peakRightDb;
+    this.crossChannelCorrelation = crossChannelCorrelation;
+
+    if (this.#statsPromiseResolver) {
+      this.#statsPromiseResolver(event.data);
+      this.#statsPromiseResolver = null;
+    }
+  }
+
+  /**
+   * Handles errors from the stats web worker.
+   * @private
+   * @param {ErrorEvent} event
+   */
+  #handleStatsWorkerError(event) {
+    console.error('TrackStats Worker error:', event);
   }
 
   /**
@@ -122,5 +170,12 @@ export class Track {
       source.loopEnd = this.#bufferLength / this.#sampleRate;
     }
     return source;
+  }
+
+  /**
+   * Terminates the web worker associated with this track.
+   */
+  terminateWorker() {
+    this.#statsWorker.terminate();
   }
 }

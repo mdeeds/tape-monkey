@@ -151,6 +151,11 @@ export class TapeDeckEngine extends ToolHandler {
    * Stops recording on the currently active track.
    */
   stop() {
+    if (this.#isRecording) {
+      this.#tracks[this.#activeTrack || 0].getStats()
+      .then((stats) => { console.log(stats) });
+    }
+
     this.#isRecording = false;
     this.#metronomeEngine.stop();
     this.#recordingStartFrame = null;
