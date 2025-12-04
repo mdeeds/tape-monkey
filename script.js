@@ -98,6 +98,18 @@ function createAudioContext() {
 }
 
 function init() {
+  // Choose and set a random background image
+  const images = ['images/light-background.png', 'images/natural-background.jpg'];
+  const chosenImage = images[Math.floor(Math.random() * images.length)];
+
+  // Apply background styles to the body
+  document.body.style.backgroundImage = `url('${chosenImage}')`;
+  document.body.style.backgroundSize = 'cover';
+  document.body.style.backgroundPosition = 'center';
+  document.body.style.backgroundRepeat = 'no-repeat';
+  document.body.style.backgroundAttachment = 'fixed';
+  document.body.style.minHeight = '100vh';
+
   const startButton = document.createElement('button');
   const mainContainer = document.createElement('div');
   mainContainer.id = 'main-container';
