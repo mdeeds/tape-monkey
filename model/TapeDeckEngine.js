@@ -72,11 +72,11 @@ export class TapeDeckEngine extends ToolHandler {
     this.#mixerEngine = mixerEngine;
     this.#metronomeEngine = metronomeEngine;
     // Note: The constructor is private. Use the static `create` method instead.
+  }
 
-    // Initialize 16 stereo tracks
-    for (let i = 0; i < 16; i++) {
-      this.#tracks.push(new Track(this.#audioContext, this.#audioContext.sampleRate));
-    }
+  get tracks() {
+    // Needed for UI to get track stats
+    return this.#tracks;
   }
 
   /**
@@ -84,6 +84,14 @@ export class TapeDeckEngine extends ToolHandler {
    */
   async #initialize() {
     try {
+      // Initialize 16 stereo tracks
+      const trackPromises = [];
+      for (let i = 0; i < 16; i++) {
+        trackPromises.push(Track.create(this.#audioContext));
+      }
+      this.#tracks = await Promise.all(trackPromises);
+      this.#tracks.forEach((track, i) => track.connect(this.#mixerEngine.getChannelInput(i)));
+
       await this.#audioContext.audioWorklet.addModule(
         TapeDeckEngine.WORKLET_PROCESSOR_PATH);
     } catch (e) {
@@ -152,6 +160,8 @@ export class TapeDeckEngine extends ToolHandler {
    */
   stop() {
     if (this.#isRecording) {
+      const activeTrack = this.#tracks[this.#activeTrack];
+      activeTrack.update();
       this.#tracks[this.#activeTrack || 0].getStats()
       .then((stats) => { console.log(stats) });
     }
@@ -159,6 +169,9 @@ export class TapeDeckEngine extends ToolHandler {
     this.#isRecording = false;
     this.#metronomeEngine.stop();
     this.#recordingStartFrame = null;
+    for (const track of this.#tracks) {
+      track.stop();
+    }
   }
 
   /**
@@ -263,9 +276,7 @@ export class TapeDeckEngine extends ToolHandler {
 
     for (let i = 0; i < this.#tracks.length; i++) {
       const track = this.#tracks[i];
-      const source = track.createSourceNode(this.#audioContext, loop);
-      source.connect(this.#mixerEngine.getChannelInput(i));
-      source.start(startTime, tapeStartTime);
+      track.play(startFrame, tapeStartTime, loop);
     }
   }
 

@@ -1,5 +1,6 @@
 // @ts-check
 
+const PLAYBACK_PROCESSOR_PATH = 'model/PlaybackProcessor.js';
 const FIVE_MINUTES_IN_SECONDS = 5 * 60;
 
 /**
@@ -8,11 +9,17 @@ const FIVE_MINUTES_IN_SECONDS = 5 * 60;
 export class Track {
   /** @type {AudioBuffer} */
   #audioBuffer;
+  /** @type {AudioContext} */
+  #audioContext;
   /** @type {number} */
   #sampleRate;
   /** @type {number} */
   #bufferLength;
-
+  /** @type {AudioWorkletNode} */
+  #playbackNode;
+  /** @type {GainNode} */
+  #outputNode;
+  
   // Analysis properties
   /** @type {number} RMS for left channel in dB. */
   rmsLeftDb = -Infinity;
@@ -34,21 +41,54 @@ export class Track {
   #statsPromiseResolver = null;
 
   /**
+   * Asynchronously creates and initializes a Track instance.
    * @param {AudioContext} audioContext The audio context.
-   * @param {number} sampleRate The sample rate of the audio context.
+   * @returns {Promise<Track>}
    */
-  constructor(audioContext, sampleRate) {
-    this.#sampleRate = sampleRate;
-    this.#bufferLength = sampleRate * FIVE_MINUTES_IN_SECONDS;
+  static async create(audioContext) {
+    await audioContext.audioWorklet.addModule(PLAYBACK_PROCESSOR_PATH);
+    return new Track(audioContext);
+  }
+
+  /**
+   * @private
+   * @param {AudioContext} audioContext The audio context.
+   */
+  constructor(audioContext) {
+    this.#audioContext = audioContext;
+    this.#sampleRate = audioContext.sampleRate;
+    this.#bufferLength = this.#sampleRate * FIVE_MINUTES_IN_SECONDS;
 
     // Pre-allocate buffers for 5 minutes of stereo audio
     this.#audioBuffer =
-      audioContext.createBuffer(2, this.#bufferLength, this.#sampleRate);
+      this.#audioContext.createBuffer(2, this.#bufferLength, this.#sampleRate);
+
+    this.#playbackNode = new AudioWorkletNode(this.#audioContext, 'playback-processor');
+    this.#outputNode = this.#audioContext.createGain();
+    this.#playbackNode.connect(this.#outputNode);
 
     // Initialize the web worker for track statistics
     this.#statsWorker = new Worker(new URL('./TrackStats.js', import.meta.url), { type: 'module' });
     this.#statsWorker.onmessage = this.#handleStatsWorkerMessage.bind(this);
     this.#statsWorker.onerror = this.#handleStatsWorkerError.bind(this);
+  }
+
+  /**
+   * Connects the track's output to another AudioNode.
+   * @param {AudioNode} destination 
+   */
+  connect(destination) {
+    this.#outputNode.connect(destination);
+  }
+
+  /**
+  * Asynchronously creates and initializes a Track instance.
+   * @param {AudioContext} audioContext The audio context.
+   * @returns {Promise<Track>}
+   */
+  static async create(audioContext) {
+    await audioContext.audioWorklet.addModule(PLAYBACK_PROCESSOR_PATH);
+    return new Track(audioContext);
   }
 
   /**
@@ -81,6 +121,43 @@ export class Track {
     // Mark the written region as dirty for the next stats calculation.
     this.#statsMinFrame = Math.min(this.#statsMinFrame, startFrame);
     this.#statsMaxFrame = Math.max(this.#statsMaxFrame, endFrame);
+  }
+
+  /**
+   * Sends the current audio buffer to the playback processor.
+   */
+  update() {
+    // We need to send copies because the AudioWorkletProcessor will take ownership
+    const left = this.#audioBuffer.getChannelData(0).slice();
+    const right = this.#audioBuffer.getChannelData(1).slice();
+
+    this.#playbackNode.port.postMessage({
+      type: 'set_buffers',
+      data: { left, right }
+    }, [left.buffer, right.buffer]);
+  }
+
+  /**
+   * Starts playback at a specific time.
+   * @param {number} startFrame The audio context frame to start playback.
+   * @param {number} offsetInSeconds The offset within the track to start playing from.
+   * @param {boolean} loop Whether to loop playback.
+   */
+  play(startFrame, offsetInSeconds, loop) {
+    this.#playbackNode.parameters.get('loopStart').value = offsetInSeconds;
+    // If not looping, set duration to a very large number to play to the end.
+    // A value of 0 means use the full buffer.
+    this.#playbackNode.parameters.get('loopDuration').value = loop ? this.#bufferLength / this.#sampleRate : 0;
+
+    this.#playbackNode.port.postMessage({ type: 'start', data: { startFrame } });
+  }
+
+  /**
+   * Stops playback.
+   */
+  stop() {
+    // A 'stop' message could be implemented in the processor, but for now we can just disconnect it.
+    // For a real stop, we'd message the processor to halt its loop.
   }
 
   /**
@@ -150,26 +227,6 @@ export class Track {
    */
   #handleStatsWorkerError(event) {
     console.error('TrackStats Worker error:', event);
-  }
-
-  /**
-   * Creates an AudioBufferSourceNode that is ready to play the track's content.
-   * The caller is responsible for calling `start(when, offset, duration)`.
-   * @param {AudioContext} audioContext The audio context to create the node in.
-   * @param {boolean} loop Whether the created source node should loop.
-   * @returns {AudioBufferSourceNode} An AudioBufferSourceNode.
-   */
-  createSourceNode(audioContext, loop) {
-    const source = audioContext.createBufferSource();
-    source.buffer = this.#audioBuffer;
-    source.loop = loop;
-
-    if (loop) {
-      // If looping, we need to specify the loop start and end points in seconds.
-      source.loopStart = 0;
-      source.loopEnd = this.#bufferLength / this.#sampleRate;
-    }
-    return source;
   }
 
   /**
