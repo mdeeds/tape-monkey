@@ -99,7 +99,11 @@ function createAudioContext() {
 
 function init() {
   // Choose and set a random background image
-  const images = ['images/light-background.png', 'images/natural-background.jpg'];
+  const images = [
+    'images/light-background.png', 
+    'images/natural-background.png',
+    'images/dark-background.png'
+  ];
   const chosenImage = images[Math.floor(Math.random() * images.length)];
 
   // Apply background styles to the body
