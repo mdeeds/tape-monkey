@@ -19,7 +19,7 @@ export class ToolSchemas {
           required: ["text"]
         },
         play: {
-          description: "Play a the specified song sessions in order as well as any sections in between.",
+          description: "Plays the audio. Specify the sections to play.",
           type: "object",
           properties: {
             sections: {
