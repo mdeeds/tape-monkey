@@ -38,6 +38,12 @@ class PlaybackProcessor extends AudioWorkletProcessor {
         defaultValue: 0,
         minValue: 0,
         automationRate: 'k-rate'
+      },
+      {
+        name: 'latencyCompensation',
+        defaultValue: 0,
+        minValue: 0,
+        automationRate: 'k-rate'
       }
     ];
   }
@@ -54,6 +60,8 @@ class PlaybackProcessor extends AudioWorkletProcessor {
       console.log('PlaybackProcessor received start message:', data);
       this.#startFrame = data.startFrame;
       this.#loop = data.loop;
+    } else if (type === 'stop') {
+      this.#startFrame = -1;
     }
   }
 
@@ -75,6 +83,7 @@ class PlaybackProcessor extends AudioWorkletProcessor {
 
     const loopStartParam = parameters.loopStart[0];
     const loopDurationParam = parameters.loopDuration[0];
+    const latencyCompensationParam = parameters.latencyCompensation[0];
 
     const loopStartFrame = Math.floor(loopStartParam * sampleRate);
     const loopDurationFrames = (loopDurationParam > 0)
@@ -86,6 +95,8 @@ class PlaybackProcessor extends AudioWorkletProcessor {
     }
 
     const loopEndFrame = loopStartFrame + loopDurationFrames;
+    const latencyCompensationFrames = Math.floor(latencyCompensationParam * sampleRate);
+
 
     for (let i = 0; i < FRAMES_PER_QUANTUM; i++) {
       const frame = currentFrame + i;
@@ -96,14 +107,15 @@ class PlaybackProcessor extends AudioWorkletProcessor {
       }
 
       const framesSinceStart = frame - this.#startFrame;
-      let bufferFrameIndex = loopStartFrame + framesSinceStart;
+      const compensatedLoopStartFrame = loopStartFrame + latencyCompensationFrames;
+      let bufferFrameIndex = compensatedLoopStartFrame + framesSinceStart;
 
       if (this.#loop) {
-        bufferFrameIndex = loopStartFrame + (framesSinceStart % loopDurationFrames);
+        bufferFrameIndex = compensatedLoopStartFrame + (framesSinceStart % loopDurationFrames);
       }
 
       if (bufferFrameIndex < loopEndFrame) {
-        leftChannel[i] = this.#leftBuffer[bufferFrameIndex] || 0;
+        leftChannel[i] = this.#leftBuffer[bufferFrameIndex] ?? 0;
         if (rightChannel) rightChannel[i] = this.#rightBuffer[bufferFrameIndex] || 0;
       }
     }

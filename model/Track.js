@@ -154,11 +154,21 @@ export class Track {
   }
 
   /**
+   * Sets the latency compensation for the track.
+   * @param {number} seconds The latency compensation in seconds.
+   */
+  setLatencyCompensation(seconds) {
+    const latencyParam = this.#playbackNode.parameters.get('latencyCompensation');
+    if (latencyParam) {
+      latencyParam.value = seconds;
+    }
+  }
+
+  /**
    * Stops playback.
    */
   stop() {
-    // A 'stop' message could be implemented in the processor, but for now we can just disconnect it.
-    // For a real stop, we'd message the processor to halt its loop.
+    this.#playbackNode.port.postMessage({ type: 'stop' });
   }
 
   /**

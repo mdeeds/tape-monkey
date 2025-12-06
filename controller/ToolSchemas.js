@@ -59,6 +59,14 @@ export class ToolSchemas {
             volumeDB: { type: "number" }
           }
         },
+        set_latency_compensation: {
+          description: "Set the latency compensation for all tracks in seconds. This is used to align playback with the metronome.",
+          type: "object",
+          properties: {
+            seconds: { type: "number", minimum: 0, maximum: 1}
+          },
+          required: ["seconds"]
+        },
         update_song_attributes: {
           description: "Update the song's attributes, like BPM or time signature.",
           type: "object",

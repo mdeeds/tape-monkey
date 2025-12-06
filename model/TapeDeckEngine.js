@@ -181,7 +181,7 @@ export class TapeDeckEngine extends ToolHandler {
    * @returns {boolean} True if the tool can be handled, false otherwise.
    */
   canHandle(toolName) {
-    return ['arm', 'play', 'record', 'stop'].includes(toolName);
+    return ['arm', 'play', 'record', 'stop', 'set_latency_compensation'].includes(toolName);
   }
 
   /**
@@ -204,6 +204,9 @@ export class TapeDeckEngine extends ToolHandler {
         break;
       case 'stop':
         this.stop();
+        break;
+      case 'set_latency_compensation':
+        this.#setLatencyCompensation(args.seconds);
         break;
     }
   }
@@ -254,6 +257,16 @@ export class TapeDeckEngine extends ToolHandler {
   #arm(trackNumber) {
     console.log(`Arming track ${trackNumber}`);
     this.#activeTrack = trackNumber - 1;
+  }
+
+  /**
+   * Sets the latency compensation for all tracks.
+   * @param {number} seconds
+   */
+  #setLatencyCompensation(seconds) {
+    for (const track of this.#tracks) {
+      track.setLatencyCompensation(seconds);
+    }
   }
 
   /**
