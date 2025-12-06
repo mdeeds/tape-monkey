@@ -15,10 +15,10 @@ class PlaybackProcessor extends AudioWorkletProcessor {
   /** @type {Float32Array} */
   #rightBuffer = new Float32Array(0);
 
+  /** @type {boolean} Whether to loop playback. */
+  #loop = false;
   /** @type {number} The `currentFrame` when playback should start. */
   #startFrame = -1;
-  /** @type {number} The current position within our source audio buffer, in frames. */
-  #playheadFrame = 0;
 
   constructor() {
     super();
@@ -51,8 +51,9 @@ class PlaybackProcessor extends AudioWorkletProcessor {
       this.#leftBuffer = data.left;
       this.#rightBuffer = data.right;
     } else if (type === 'start') {
+      console.log('PlaybackProcessor received start message:', data);
       this.#startFrame = data.startFrame;
-      this.#playheadFrame = 0; // Reset playhead on start
+      this.#loop = data.loop;
     }
   }
 
@@ -63,48 +64,47 @@ class PlaybackProcessor extends AudioWorkletProcessor {
    * @returns {boolean}
    */
   process(inputs, outputs, parameters) {
-    // Don't run if we haven't been started or have no buffers.
+    const output = outputs[0];
+    const leftChannel = output[0];
+    const rightChannel = output.length > 1 ? output[1] : null;
+
     if (this.#startFrame === -1 || this.#leftBuffer.length === 0) {
+      // Not started or no buffer, output silence.
       return true;
     }
 
-    // Wait until it's time to start.
-    if (currentFrame < this.#startFrame) {
-      return true;
+    const loopStartParam = parameters.loopStart[0];
+    const loopDurationParam = parameters.loopDuration[0];
+
+    const loopStartFrame = Math.floor(loopStartParam * sampleRate);
+    const loopDurationFrames = (loopDurationParam > 0)
+      ? Math.floor(loopDurationParam * sampleRate)
+      : this.#leftBuffer.length - loopStartFrame;
+
+    if (loopDurationFrames <= 0) {
+      return true; // Nothing to play.
     }
 
-    const loopStartSeconds = parameters.loopStart[0];
-    const loopDurationSeconds = parameters.loopDuration[0];
+    const loopEndFrame = loopStartFrame + loopDurationFrames;
 
-    const loopStartFrame = Math.floor(loopStartSeconds * sampleRate);
-    let loopEndFrame;
+    for (let i = 0; i < FRAMES_PER_QUANTUM; i++) {
+      const frame = currentFrame + i;
 
-    if (loopDurationSeconds > 0) {
-      loopEndFrame = loopStartFrame + Math.floor(loopDurationSeconds * sampleRate);
-    } else {
-      // If loop duration is 0, use the full buffer length.
-      loopEndFrame = this.#leftBuffer.length;
-    }
+      if (frame < this.#startFrame) {
+        // Haven't reached the start time yet.
+        continue;
+      }
 
-    // Ensure loop points are within buffer bounds.
-    const effectiveLoopStart = Math.max(0, Math.min(loopStartFrame, this.#leftBuffer.length));
-    const effectiveLoopEnd = Math.max(effectiveLoopStart, Math.min(loopEndFrame, this.#leftBuffer.length));
-    const effectiveLoopDuration = effectiveLoopEnd - effectiveLoopStart;
+      const framesSinceStart = frame - this.#startFrame;
+      let bufferFrameIndex = loopStartFrame + framesSinceStart;
 
-    if (effectiveLoopDuration <= 0) return true; // Nothing to play.
+      if (this.#loop) {
+        bufferFrameIndex = loopStartFrame + (framesSinceStart % loopDurationFrames);
+      }
 
-    for (const output of outputs) {
-      const leftChannel = output[0];
-      const rightChannel = output.length > 1 ? output[1] : null;
-
-      for (let i = 0; i < FRAMES_PER_QUANTUM; i++) {
-        const bufferFrameIndex = effectiveLoopStart + (this.#playheadFrame % effectiveLoopDuration);
-
+      if (bufferFrameIndex < loopEndFrame) {
         leftChannel[i] = this.#leftBuffer[bufferFrameIndex] || 0;
-        if (rightChannel) {
-          rightChannel[i] = this.#rightBuffer[bufferFrameIndex] || 0;
-        }
-        this.#playheadFrame++;
+        if (rightChannel) rightChannel[i] = this.#rightBuffer[bufferFrameIndex] || 0;
       }
     }
 

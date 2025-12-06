@@ -197,7 +197,7 @@ export class TapeDeckEngine extends ToolHandler {
         this.#arm(args.track_number);
         break;
       case 'play':
-        this.#play(args.sections);
+        this.#play(args.sections || [], args.loop || false);
         break;
       case 'record':
         this.#record(args.sections);
@@ -276,7 +276,7 @@ export class TapeDeckEngine extends ToolHandler {
 
     for (let i = 0; i < this.#tracks.length; i++) {
       const track = this.#tracks[i];
-      track.play(startFrame, tapeStartTime, loop);
+      track.play(startFrame, tapeStartTime, tapeEndTime, loop);
     }
   }
 

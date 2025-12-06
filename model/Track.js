@@ -140,16 +140,17 @@ export class Track {
   /**
    * Starts playback at a specific time.
    * @param {number} startFrame The audio context frame to start playback.
-   * @param {number} offsetInSeconds The offset within the track to start playing from.
+   * @param {number} tapeStartTime The offset within the track to start playing from.
+   * @param {number} tapeEndTime The offset within the track to start playing from.
    * @param {boolean} loop Whether to loop playback.
    */
-  play(startFrame, offsetInSeconds, loop) {
-    this.#playbackNode.parameters.get('loopStart').value = offsetInSeconds;
+  play(startFrame, tapeStartTime, tapeEndTime, loop) {
+    this.#playbackNode.parameters.get('loopStart').value = tapeStartTime;
     // If not looping, set duration to a very large number to play to the end.
     // A value of 0 means use the full buffer.
-    this.#playbackNode.parameters.get('loopDuration').value = loop ? this.#bufferLength / this.#sampleRate : 0;
+    this.#playbackNode.parameters.get('loopDuration').value = tapeEndTime - tapeStartTime;
 
-    this.#playbackNode.port.postMessage({ type: 'start', data: { startFrame } });
+    this.#playbackNode.port.postMessage({ type: 'start', data: { startFrame, loop } });
   }
 
   /**
