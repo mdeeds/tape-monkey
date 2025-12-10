@@ -19,7 +19,7 @@ export class Track {
   #playbackNode;
   /** @type {GainNode} */
   #outputNode;
-  
+
   // Analysis properties
   /** @type {number} RMS for left channel in dB. */
   rmsLeftDb = -Infinity;
@@ -63,7 +63,11 @@ export class Track {
     this.#audioBuffer =
       this.#audioContext.createBuffer(2, this.#bufferLength, this.#sampleRate);
 
-    this.#playbackNode = new AudioWorkletNode(this.#audioContext, 'playback-processor');
+    this.#playbackNode = new AudioWorkletNode(this.#audioContext, 'playback-processor', {
+      numberOfInputs: 0,
+      numberOfOutputs: 1,
+      outputChannelCount: [2]
+    });
     this.#outputNode = this.#audioContext.createGain();
     this.#playbackNode.connect(this.#outputNode);
 

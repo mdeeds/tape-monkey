@@ -163,7 +163,7 @@ export class TapeDeckEngine extends ToolHandler {
       const activeTrack = this.#tracks[this.#activeTrack];
       activeTrack.update();
       this.#tracks[this.#activeTrack || 0].getStats()
-      .then((stats) => { console.log(stats) });
+        .then((stats) => { console.log(stats) });
     }
 
     this.#isRecording = false;
@@ -281,7 +281,7 @@ export class TapeDeckEngine extends ToolHandler {
     this.#metronomeEngine.start(startFrame);
 
     const tapeInterval = this.#getSectionsTimeInterval(sections)
-    || { startTime: 0, endTime: null };
+      || { startTime: 0, endTime: null };
     const tapeStartTime = tapeInterval.startTime;
     const tapeEndTime = tapeInterval.endTime;
 
