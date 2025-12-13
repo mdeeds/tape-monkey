@@ -57,7 +57,6 @@ class PlaybackProcessor extends AudioWorkletProcessor {
       this.#leftBuffer = data.left;
       this.#rightBuffer = data.right;
     } else if (type === 'start') {
-      console.log('PlaybackProcessor received start message:', data);
       this.#startFrame = data.startFrame;
       this.#loop = data.loop;
     } else if (type === 'stop') {
