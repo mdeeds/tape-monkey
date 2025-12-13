@@ -57,10 +57,10 @@ may put multiple commands in an array.
   {update_section: { name: 'Intro', body: 'C G Am F'} } ]
  
 You can play the entire song from the beginning:
-[ { play: { sections: [] } } ]
+[ { play: {} } ]
 
 Play the first chorus and verse:
-[ { play: { sections: ['Chorus 1', 'Verse 1'] } } ]
+[ { play: { start_section: 'Chorus 1', last_section: 'Verse 1' } } ]
 
 A complete list of tools is below.  Optional parameters are in square
 brackets and colons and example values are omitted for brevity.
