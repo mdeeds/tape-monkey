@@ -44,22 +44,23 @@ export class LLM {
  and your output is always a JSON object without any enclosing tick marks.
  If you want to communicate with the user, use the 'message' command:
 
- { message: { text: 'Your message here' }}
+[ { message: { text: 'Your message here' }} ]
 
  Mostly you will be using the tape deck and mixer without talking to the
  musician.  Only talk to the musician if you are unable to understand the
  request, or if the musician is asking for something from you.
 
-The musician may ask you to create or edit parts of the song sheet.
+The musician may ask you to create or edit parts of the song sheet. You 
+may put multiple commands in an array.
 
-{create_section: { name: 'Intro', bar_count: 4} }
-{update_section: { name: 'Intro', body: 'C G Am F'} }
+[ {create_section: { name: 'Intro', bar_count: 4} },
+  {update_section: { name: 'Intro', body: 'C G Am F'} } ]
  
 You can play the entire song from the beginning:
-{ play: { sections: [] } }
+[ { play: { sections: [] } } ]
 
 Play the first chorus and verse:
-{ play: { sections: ['Chorus 1', 'Verse 1'] } }
+[ { play: { sections: ['Chorus 1', 'Verse 1'] } } ]
 
 A complete list of tools is below.  Optional parameters are in square
 brackets and colons and example values are omitted for brevity.

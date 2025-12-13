@@ -48,10 +48,12 @@ export class MainController {
           this.#toolSchemas.getSchema(sectionNames))
       );
     console.log('LLM: ', response);
-    for (const toolName in response) {
-      if (Object.hasOwnProperty.call(response, toolName)) {
-        const toolParams = response[toolName];
-        await this.callTool(toolName, toolParams);
+    for (const toolCall of response) {
+      for (const toolName in toolCall) {
+        if (Object.hasOwnProperty.call(toolCall, toolName)) {
+          const toolParams = toolCall[toolName];
+          await this.callTool(toolName, toolParams);
+        }
       }
     }
   }
