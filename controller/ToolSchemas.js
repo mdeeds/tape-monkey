@@ -21,25 +21,31 @@ export class ToolSchemas {
             required: ["text"]
           },
           play: {
-            description: "Plays the audio. Specify the sections to play.",
+            description: "Plays the audio. Specify the start_section and last_section to play. If only start_section is provided, only that section will play.",
             type: "object",
             properties: {
-              sections: {
-                type: "array", items: { type: "string", enum: sectionNames }
+              start_section: {
+                type: "string", enum: sectionNames
+              },
+              last_section: {
+                type: "string", enum: sectionNames
               },
               loop: { type: "boolean" }
             },
-            required: ["sections"]
+            required: ["start_section"]
           },
           record: {
-            description: "Record audio over a set of song sections.",
+            description: "Record audio over part of the song. Specify the start_section and last_section to record over. If only start_section is provided, only that section will be recorded over.",
             type: "object",
             properties: {
-              sections: {
-                type: "array", items: { type: "string", enum: sectionNames }
+              start_section: {
+                type: "string", enum: sectionNames
+              },
+              last_section: {
+                type: "string", enum: sectionNames
               }
             },
-            required: ["sections"]
+            required: ["start_section"]
           },
           stop: {
             description: "Stop playback or recording.",

@@ -197,10 +197,10 @@ export class TapeDeckEngine extends ToolHandler {
         this.#arm(args.track_number);
         break;
       case 'play':
-        this.#play(args.sections || [], args.loop || false);
+        this.#play(args.start_section, args.last_section, args.loop || false);
         break;
       case 'record':
-        this.#record(args.sections);
+        this.#record(args.start_section, args.last_section);
         break;
       case 'stop':
         this.stop();
@@ -212,40 +212,41 @@ export class TapeDeckEngine extends ToolHandler {
   }
 
   /**
-   * Calculates the start and end time for a list of song sections.
-   * @param {string[]} sectionNames An array of section names.
+   * Calculates the start and end time for a range of song sections.
+   * @param {string} startSectionName The name of the first section.
+   * @param {string} [endSectionName] The name of the last section. If not provided, only the start section is used.
    * @returns {{startTime: number, endTime: number} | null} An object with the 
    * start and end times in seconds, or null if no valid sections are found.
    */
-  #getSectionsTimeInterval(sectionNames) {
-    let minStartTime = Infinity;
-    let maxEndTime = -1;
-
-    if (!sectionNames || sectionNames.length === 0) {
+  #getSectionsTimeInterval(startSectionName, endSectionName) {
+    if (!startSectionName) {
       return null;
     }
 
-    for (const sectionName of sectionNames) {
-      const startTime = this.#songState.getSectionStartTime(sectionName);
-      if (startTime === -1) {
-        console.warn(`Section "${sectionName}" not found. Skipping.`);
-        continue;
-      }
+    const allSectionNames = this.#songState.sections.map(s => s.name);
+    const startIndex = allSectionNames.indexOf(startSectionName);
+    const endIndex = endSectionName ? allSectionNames.indexOf(endSectionName) : startIndex;
 
+    if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
+      console.warn(`Invalid section range: from "${startSectionName}" to "${endSectionName}".`);
+      return null;
+    }
+
+    const sectionsInRange = allSectionNames.slice(startIndex, endIndex + 1);
+
+    const minStartTime = this.#songState.getSectionStartTime(sectionsInRange[0]);
+
+    if (minStartTime === -1) {
+      return null;
+    }
+
+    let maxEndTime = minStartTime;
+    let currentEndTime = minStartTime;
+    for (const sectionName of sectionsInRange) {
       const duration = this.#songState.getSectionDuration(sectionName);
-      const endTime = startTime + duration;
-
-      if (startTime < minStartTime) {
-        minStartTime = startTime;
-      }
-      if (endTime > maxEndTime) {
-        maxEndTime = endTime;
-      }
+      currentEndTime += duration;
     }
-
-    if (minStartTime === Infinity) {
-      return null; // No valid sections were found
-    }
+    maxEndTime = currentEndTime;
 
     return { startTime: minStartTime, endTime: maxEndTime };
   }
@@ -271,21 +272,22 @@ export class TapeDeckEngine extends ToolHandler {
 
   /**
    * 
-   * @param {string[]} sections 
+   * @param {string} startSection 
+   * @param {string | undefined} lastSection 
    * @param {boolean} loop 
    * @returns 
    */
-  #play(sections, loop = false) {
+  #play(startSection, lastSection, loop = false) {
     const startTime = this.#audioContext.currentTime + 0.05; // 50ms delay
     const startFrame = Math.round(startTime * this.#audioContext.sampleRate);
     this.#metronomeEngine.start(startFrame);
 
-    const tapeInterval = this.#getSectionsTimeInterval(sections)
+    const tapeInterval = this.#getSectionsTimeInterval(startSection, lastSection)
       || { startTime: 0, endTime: null };
     const tapeStartTime = tapeInterval.startTime;
     const tapeEndTime = tapeInterval.endTime;
 
-    console.log(`Playing sections: ${sections.join(', ')} from ${tapeStartTime}s to ${tapeEndTime}s`);
+    console.log(`Playing from ${startSection || 'start'} to ${lastSection || startSection} (${tapeStartTime}s to ${tapeEndTime}s)`);
 
     for (let i = 0; i < this.#tracks.length; i++) {
       const track = this.#tracks[i];
@@ -295,10 +297,11 @@ export class TapeDeckEngine extends ToolHandler {
 
   /**
    * 
-   * @param {string[]} sections 
+   * @param {string} startSection 
+   * @param {string | undefined} lastSection 
    */
-  #record(sections) {
-    this.#play(sections);
+  #record(startSection, lastSection) {
+    this.#play(startSection, lastSection);
     this.startRecording();
   }
 }
