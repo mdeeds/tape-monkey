@@ -10,12 +10,14 @@
 export class LLM {
   #session = null;
   #schemaDescription = null;
+  #promptHistory = [];
 
   /**
    * @constructor
    * @private
    */
   constructor(session, schemaDescription) {
+    this.#promptHistory = [];
     this.#session = session;
     this.#schemaDescription = schemaDescription;
   }
@@ -118,6 +120,12 @@ See https://developer.chrome.com/docs/ai/prompt-api#use_on_localhost`;
     }
   }
 
+
+  #hardCodedResponses = new Map([
+    ["play", '[ { "play": {} } ]'],
+    ["stop", '[ { "stop": {} } ]'],
+  ]);
+
   /**
    * 
    * @param {string} text 
@@ -129,12 +137,21 @@ See https://developer.chrome.com/docs/ai/prompt-api#use_on_localhost`;
       throw new Error("Session is not initialized.");
     }
     console.log(`Sending message to LLM: ${text}`);
-    const response = await this.#session.prompt(text, {
-      outputLanguage: ['en'],
-      responseConstraint: toolSchema
-    });
-    console.log(`LLM Done. ${response.length} bytes`);
-    return response;
+    this.#promptHistory.push({ role: 'user', content: text });
+
+    const key = text.toLowerCase().trim();
+    let fullResponse;
+    if (this.#hardCodedResponses.has(key)) {
+      fullResponse = this.#hardCodedResponses.get(key);
+    } else {
+      fullResponse = await this.#session.prompt(this.#promptHistory, {
+        outputLanguage: ['en'],
+        responseConstraint: toolSchema
+      });
+    }
+    this.#promptHistory.push({ role: 'assistant', content: fullResponse });
+    console.log(`LLM Done. ${fullResponse.length} bytes`);
+    return fullResponse;
   }
 
   querySyntaxCorrection(malformedText) {
@@ -145,13 +162,14 @@ See https://developer.chrome.com/docs/ai/prompt-api#use_on_localhost`;
     const progressDiv = document.createElement('div');
     document.body.appendChild(progressDiv);
 
+    const initialPrompts = [{ role: 'system', content: this.#getSystemInstructions(this.#schemaDescription) }];
+    this.#promptHistory.push(...initialPrompts);
+
     this.#session = await LanguageModel.create({
-      initialPrompts: [
-        {
-          role: 'system',
-          content: this.#getSystemInstructions(this.#schemaDescription)
-        }
-      ],
+      // The initial prompts are now part of the history, which will be passed
+      // to promptStreaming. The `initialPrompts` property on create seems
+      // to be for a different purpose or an older API version.
+      initialPrompts,
       outputLanguage: ['en'],
       monitor: (m) => {
         m.addEventListener('downloadprogress', (e) => {
