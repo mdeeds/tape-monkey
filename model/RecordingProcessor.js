@@ -1,5 +1,3 @@
-// @ts-check
-
 const CHUNKS_PER_POST = 16;
 // An AudioWorkletProcessor is given 128 frames per channel at a time.
 const FRAMES_PER_CHUNK = 128;
