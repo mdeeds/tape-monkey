@@ -95,6 +95,8 @@ export class Track {
     return new Track(audioContext);
   }
 
+  #lastFrameWritten = 0;
+
   /**
    * Writes audio data into the track's buffers at a specific frame offset.
    * @param {Float32Array} leftData The left channel audio data.
@@ -105,6 +107,10 @@ export class Track {
     if (startFrame < 0) {
       console.warn('Attempted to write with a negative startFrame.');
       return;
+    }
+
+    if (startFrame - this.#lastFrameWritten > 1) {
+      console.warn('Skipped frames: ' + (startFrame - this.#lastFrameWritten));
     }
 
     const endFrame = startFrame + leftData.length;
@@ -120,11 +126,70 @@ export class Track {
       // Create a new Float32Array to satisfy the strict type checking for copyToChannel.
       this.#audioBuffer.copyToChannel(new Float32Array(leftData), 0, startFrame);
       this.#audioBuffer.copyToChannel(new Float32Array(rightData), 1, startFrame);
+      this.#lastFrameWritten = startFrame + leftData.length;
     }
 
     // Mark the written region as dirty for the next stats calculation.
     this.#statsMinFrame = Math.min(this.#statsMinFrame, startFrame);
     this.#statsMaxFrame = Math.max(this.#statsMaxFrame, endFrame);
+  }
+
+  /** @type {HTMLCanvasElement | null} */
+  #canvas = null;
+
+  /**
+   * 
+   * @param {Float32Array} leftData 
+   * @param {Float32Array} rightData 
+   */
+  updateCanvas(leftData, rightData) {
+    if (this.#canvas) {
+      this.#canvas.parentElement.removeChild(this.#canvas);
+    }
+    this.#canvas = document.createElement('canvas');
+    if (!this.#canvas) {
+      throw new Error("Failed to create canvas.");
+    }
+    const durationSeconds = leftData.length / this.#audioContext.sampleRate;
+    this.#canvas.height = 128;
+    const PIXELS_PER_SECOND = 100;
+    this.#canvas.width = Math.round(durationSeconds * PIXELS_PER_SECOND);
+    document.body.appendChild(this.#canvas);
+    const ctx = this.#canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error("Failed to get canvas context.");
+    }
+    const imageData = ctx.createImageData(this.#canvas.width, this.#canvas.height);
+    const data = imageData.data;
+
+    for (let x = 0; x < this.#canvas.width; x++) {
+      let i = Math.round(x / PIXELS_PER_SECOND * this.#audioContext.sampleRate);
+      let dataIndex = x * 4;
+      for (let y = 0; y < this.#canvas.height; y++) {
+        const left = leftData[i];
+        const right = rightData[i];
+
+        if (left > 1.0 || left < -1.0 || right > 1.0 || right < -1.0) {
+          // Out of bounds #f0f
+          data[dataIndex + 0] = 255;
+          data[dataIndex + 1] = 0;
+          data[dataIndex + 2] = 255;
+          data[dataIndex + 3] = 255;
+        } else {
+          const red = Math.round(Math.abs(right) * 255);
+          const blue = Math.round(Math.abs(left) * 255);
+          const green = Math.round(Math.abs(left - right) * 255);
+
+          data[dataIndex + 0] = red;
+          data[dataIndex + 1] = green;
+          data[dataIndex + 2] = blue;
+          data[dataIndex + 3] = 255;
+        }
+        ++i;
+        dataIndex += this.#canvas.width * 4;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
   }
 
   /**
@@ -139,6 +204,7 @@ export class Track {
       type: 'set_buffers',
       data: { left, right }
     }, [left.buffer, right.buffer]);
+    // this.updateCanvas(left, right);
   }
 
   /**
@@ -209,6 +275,7 @@ export class Track {
       // Post data to worker for calculation. We need to copy the data because it's being transferred.
       const leftDataForWorker = new Float32Array(leftData);
       const rightDataForWorker = new Float32Array(rightData);
+      this.updateCanvas(leftData, rightData);
       this.#statsWorker.postMessage({
         left: leftDataForWorker,
         right: rightDataForWorker
